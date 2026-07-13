@@ -1,0 +1,1692 @@
+/* ==========================================================================
+   شطّب - دفتر مرجع التصميم
+   ملف الأنماط الرئيسي
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   المتغيرات (Variables)
+   -------------------------------------------------------------------------- */
+:root {
+  --ink: #1c2530;
+  --ink-soft: #3d4c5e;
+  --paper: #f3efe6;
+  --paper-line: #d9d2c1;
+  --sheet: #fffdf8;
+  --navy: #1b2a41;
+  --navy-2: #233953;
+  --brass: #b8863e;
+  --brass-soft: #e4c893;
+  --rust: #a85c3f;
+  --sage: #6f7a5e;
+  --ok: #3d7a4f;
+  --danger: #a83f3f;
+  --radius: 2px;
+  --shadow: 0 1px 2px rgba(28,37,48,.06), 0 8px 24px rgba(28,37,48,.05);
+  --sidebar-bg: #1b2a41;
+  --sidebar-text: #f3efe6;
+  --card-bg: #fff;
+  --input-bg: #fff;
+  --empty-bg: #fbf9f4;
+}
+
+body.dark-mode {
+  --ink: #e8ecf1;
+  --ink-soft: #a8b5c5;
+  --paper: #1e2430;
+  --paper-line: #2d3748;
+  --sheet: #262d3a;
+  --navy: #0d1320;
+  --navy-2: #151d2e;
+  --brass: #d4a054;
+  --brass-soft: #f4d893;
+  --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+  --sidebar-bg: #0d1320;
+  --sidebar-text: #e8ecf1;
+  --card-bg: #262d3a;
+  --input-bg: #1e2430;
+  --empty-bg: #1e2430;
+}
+
+/* --------------------------------------------------------------------------
+   الإعدادات الأساسية (Base)
+   -------------------------------------------------------------------------- */
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'IBM Plex Sans Arabic', 'Tajawal', sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+  background: linear-gradient(var(--paper-line) 1px, transparent 1px) 0 0/100% 28px, var(--paper);
+  color: var(--ink);
+  min-height: 100vh;
+  transition: background-color .4s ease, color .4s ease;
+}
+
+.mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* --------------------------------------------------------------------------
+   التخطيط الرئيسي (Layout)
+   -------------------------------------------------------------------------- */
+.app {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  min-height: 100vh;
+}
+
+@media (max-width: 820px) {
+  .app {
+    grid-template-columns: 1fr;
+  }
+  .sidebar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    padding: 14px 12px;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   الشريط الجانبي (Sidebar)
+   -------------------------------------------------------------------------- */
+.sidebar {
+  background: var(--sidebar-bg);
+  color: var(--sidebar-text);
+  padding: 22px 18px 18px;
+  border-left: 6px solid var(--brass);
+  position: relative;
+  transition: background-color .4s ease;
+}
+
+/* زر تبديل الوضع الليلي */
+.theme-toggle-wrapper {
+  position: absolute;
+  top: 18px;
+  left: 18px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.theme-toggle-label {
+  font-size: 11px;
+  color: #8fa0b3;
+  font-family: 'JetBrains Mono', monospace;
+  letter-spacing: .05em;
+}
+
+.theme-toggle {
+  position: relative;
+  width: 48px;
+  height: 26px;
+  background: rgba(255,255,255,.15);
+  border: none;
+  border-radius: 13px;
+  cursor: pointer;
+  padding: 0;
+  transition: background .3s ease;
+  outline: none;
+}
+
+.theme-toggle:hover {
+  background: rgba(255,255,255,.25);
+}
+
+.theme-toggle::before {
+  content: '🌙';
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 22px;
+  height: 22px;
+  background: var(--brass);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  transition: transform .3s ease, background .3s ease;
+  box-shadow: 0 2px 4px rgba(0,0,0,.2);
+}
+
+body.dark-mode .theme-toggle {
+  background: rgba(212,160,84,.3);
+}
+
+body.dark-mode .theme-toggle::before {
+  content: '☀️';
+  transform: translateX(-22px);
+  background: #fff;
+}
+
+/* الشعار والبراند */
+.brand {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 22px;
+  padding-bottom: 16px;
+  padding-top: 30px;
+  border-bottom: 1px solid rgba(255,255,255,.15);
+}
+
+.brand-logo {
+  margin: 0;
+  font-family: 'Tajawal', sans-serif;
+  font-size: 36px;
+  font-weight: 900;
+  background: linear-gradient(135deg, #ffffff 0%, var(--brass-soft) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: -0.5px;
+  position: relative;
+  display: inline-block;
+  line-height: 1.2;
+}
+
+.brand-logo::after {
+  content: '•';
+  -webkit-text-fill-color: var(--brass);
+  font-size: 44px;
+  position: absolute;
+  top: -8px;
+  right: -20px;
+  opacity: 0.9;
+}
+
+.brand-subtitle {
+  font-family: 'IBM Plex Sans Arabic', sans-serif;
+  font-size: 13px;
+  color: var(--brass-soft);
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  opacity: 0.9;
+}
+
+.brand small {
+  color: #c7cfd8;
+  font-size: 12px;
+  margin-top: 6px;
+  opacity: 0.7;
+}
+
+/* شريط التقدم */
+.progress-container {
+  margin: 16px 0;
+  padding: 12px;
+  background: rgba(255,255,255,.05);
+  border-radius: 6px;
+}
+
+.progress-label {
+  font-size: 12px;
+  color: var(--brass-soft);
+  margin-bottom: 6px;
+  display: flex;
+  justify-content: space-between;
+}
+
+.progress-bar {
+  height: 6px;
+  background: rgba(255,255,255,.1);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--brass), var(--brass-soft));
+  border-radius: 3px;
+  transition: width .5s ease;
+}
+
+/* عناصر التنقل */
+.nav-group-label {
+  font-size: 11px;
+  color: #8fa0b3;
+  letter-spacing: .08em;
+  margin: 16px 0 6px;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: right;
+  background: transparent;
+  border: none;
+  color: #e7ecf1;
+  padding: 11px 12px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 16px;
+  font-family: inherit;
+  margin-bottom: 3px;
+  transition: all .2s;
+}
+
+.nav-item:hover {
+  background: rgba(255,255,255,.08);
+  transform: translateX(-2px);
+}
+
+.nav-item.active {
+  background: var(--brass);
+  color: #25190a;
+  font-weight: 600;
+}
+
+.nav-item .tag {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--brass-soft);
+  min-width: 44px;
+  text-align: left;
+}
+
+.nav-item.active .tag {
+  color: #25190a;
+}
+
+.nav-item .count {
+  margin-inline-start: auto;
+  font-size: 12px;
+  opacity: .8;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.add-room-btn {
+  width: 100%;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  border: 1px dashed rgba(255,255,255,.35);
+  background: transparent;
+  color: #dbe3ea;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 14px;
+  transition: all .2s;
+}
+
+.add-room-btn:hover {
+  border-color: var(--brass-soft);
+  color: var(--brass-soft);
+}
+
+/* تذييل الشريط الجانبي */
+.sidebar-footer {
+  margin-top: 26px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255,255,255,.15);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ghost-btn {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,.3);
+  color: #e7ecf1;
+  padding: 9px 12px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  transition: all .2s;
+}
+
+.ghost-btn:hover {
+  border-color: var(--brass-soft);
+  color: var(--brass-soft);
+  transform: translateX(-2px);
+}
+
+.btn-brass-ghost {
+  background: var(--brass);
+  border-color: var(--brass);
+  color: #241a06;
+  font-weight: 700;
+}
+
+.btn-brass-ghost:hover {
+  background: #a5762f;
+  color: #241a06;
+}
+
+.btn-brass-ghost:disabled {
+  opacity: .6;
+  cursor: wait;
+}
+
+/* --------------------------------------------------------------------------
+   المحتوى الرئيسي (Main Content)
+   -------------------------------------------------------------------------- */
+.main {
+  padding: 26px 34px 60px;
+  animation: fadeIn .3s ease;
+}
+
+@media (max-width: 820px) {
+  .main {
+    padding: 18px;
+  }
+}
+
+/* البطاقة الرئيسية (Sheet) */
+.sheet {
+  background: var(--sheet);
+  border: 1px solid var(--paper-line);
+  box-shadow: var(--shadow);
+  max-width: 980px;
+  margin: 0 auto;
+  animation: fadeIn .4s ease;
+  transition: background-color .4s ease, border-color .4s ease;
+}
+
+.title-block {
+  display: grid;
+  grid-template-columns: 1fr;
+  align-items: start;
+  gap: 14px;
+  padding: 20px 26px;
+  border-bottom: 3px solid var(--navy);
+}
+
+.title-block h2 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--navy);
+}
+
+.title-block .desc {
+  color: var(--ink-soft);
+  font-size: 15px;
+  margin-top: 4px;
+}
+
+.sheet-tag {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: #fff;
+  background: var(--navy);
+  padding: 5px 10px;
+  border-radius: 2px;
+  white-space: nowrap;
+  display: none; /* إخفاء البادج */
+}
+
+.body-pad {
+  padding: 22px 26px 30px;
+}
+
+/* عناوين الأقسام */
+h3.section-label {
+  font-size: 14px;
+  letter-spacing: .06em;
+  color: var(--brass);
+  font-family: 'JetBrains Mono', monospace;
+  text-transform: uppercase;
+  margin: 0 0 10px;
+  border-bottom: 1px solid var(--paper-line);
+  padding-bottom: 6px;
+}
+
+/* --------------------------------------------------------------------------
+   النماذج والحقول (Forms)
+   -------------------------------------------------------------------------- */
+input[type=text], input[type=date], textarea {
+  font-family: inherit;
+  border: 1px solid var(--paper-line);
+  background: var(--input-bg);
+  border-radius: var(--radius);
+  padding: 11px 13px;
+  font-size: 15px;
+  color: var(--ink);
+  width: 100%;
+  transition: border-color .2s, background-color .3s;
+}
+
+textarea {
+  resize: vertical;
+  min-height: 70px;
+}
+
+input[type=text]:focus, textarea:focus, input[type=date]:focus {
+  outline: 2px solid var(--brass-soft);
+  outline-offset: 1px;
+  border-color: var(--brass);
+}
+
+label.field-label {
+  display: block;
+  font-size: 13px;
+  color: var(--ink-soft);
+  margin-bottom: 5px;
+  font-weight: 600;
+}
+
+.field {
+  margin-bottom: 14px;
+}
+
+.field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+@media (max-width: 600px) {
+  .field-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* الأزرار */
+.btn {
+  font-family: inherit;
+  cursor: pointer;
+  border-radius: var(--radius);
+  padding: 11px 18px;
+  font-size: 15px;
+  border: 1px solid transparent;
+  font-weight: 600;
+  transition: all .2s;
+}
+
+.btn-primary {
+  background: var(--navy);
+  color: #fff;
+}
+
+.btn-primary:hover {
+  background: var(--navy-2);
+  transform: translateY(-1px);
+}
+
+.btn-brass {
+  background: var(--brass);
+  color: #241a06;
+}
+
+.btn-brass:hover {
+  background: #a5762f;
+  transform: translateY(-1px);
+}
+
+.btn-outline {
+  background: var(--input-bg);
+  border: 1px solid var(--paper-line);
+  color: var(--ink);
+}
+
+.btn-outline:hover {
+  border-color: var(--ink-soft);
+}
+
+.btn-danger-text {
+  background: transparent;
+  border: none;
+  color: var(--danger);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+
+.btn-icon {
+  background: var(--input-bg);
+  border: 1px solid var(--paper-line);
+  border-radius: var(--radius);
+  width: 30px;
+  height: 30px;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  transition: all .2s;
+  color: var(--ink);
+}
+
+.btn-icon:hover {
+  border-color: var(--ink-soft);
+  transform: scale(1.1);
+}
+
+/* --------------------------------------------------------------------------
+   منطقة رفع الصور (Dropzone)
+   -------------------------------------------------------------------------- */
+.dropzone {
+  border: 2px dashed var(--paper-line);
+  border-radius: var(--radius);
+  padding: 26px;
+  text-align: center;
+  color: var(--ink-soft);
+  cursor: pointer;
+  background: var(--empty-bg);
+  transition: all .2s;
+  margin-bottom: 20px;
+}
+
+.dropzone.drag {
+  border-color: var(--brass);
+  background: rgba(184,134,62,.1);
+  transform: scale(1.02);
+}
+
+.dropzone strong {
+  color: var(--ink);
+}
+
+.dropzone .hint {
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+/* --------------------------------------------------------------------------
+   بطاقات الصور (Image Cards)
+   -------------------------------------------------------------------------- */
+.img-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.img-card {
+  width: 170px;
+  background: var(--card-bg);
+  border: 1px solid var(--paper-line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: all .2s;
+}
+
+.img-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(28,37,48,.1);
+}
+
+.img-card .thumb-wrap {
+  position: relative;
+  width: 100%;
+  height: 130px;
+  background: #e9e5d9;
+}
+
+.img-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.badge-order {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: var(--navy);
+  color: #fff;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  padding: 2px 7px;
+  border-radius: 2px;
+}
+
+.badge-label {
+  position: absolute;
+  bottom: 6px;
+  left: 6px;
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 2px;
+}
+
+.badge-label.primary {
+  background: var(--brass);
+  color: #241a06;
+}
+
+.badge-label.alt {
+  background: rgba(28,37,48,.75);
+  color: #fff;
+}
+
+.img-card .controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  padding: 7px 8px;
+  border-top: 1px solid var(--paper-line);
+}
+
+.img-card .controls .arrows {
+  display: flex;
+  gap: 3px;
+}
+
+.img-card .controls button {
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  font-size: 12px;
+}
+
+.toggle-label-btn {
+  flex: 1;
+  font-size: 11.5px;
+  padding: 5px 6px;
+  border-radius: 2px;
+  border: 1px solid var(--paper-line);
+  background: var(--empty-bg);
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--ink);
+}
+
+/* --------------------------------------------------------------------------
+   ملاحظات فارغة (Empty Note)
+   -------------------------------------------------------------------------- */
+.empty-note {
+  color: var(--ink-soft);
+  font-size: 14px;
+  background: var(--empty-bg);
+  border: 1px dashed var(--paper-line);
+  padding: 16px;
+  border-radius: 2px;
+  margin-bottom: 16px;
+}
+
+/* --------------------------------------------------------------------------
+   إضافة الألوان (Color Add)
+   -------------------------------------------------------------------------- */
+.color-add-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+
+.swatch-input {
+  width: 64px;
+  height: 52px;
+  border: 2px solid var(--paper-line);
+  border-radius: 6px;
+  padding: 3px;
+  cursor: pointer;
+  background: var(--input-bg);
+  transition: border-color .2s;
+}
+
+.swatch-input:hover {
+  border-color: var(--brass);
+}
+
+.color-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+}
+
+.color-card {
+  background: var(--card-bg);
+  border: 2px solid var(--paper-line);
+  border-radius: 8px;
+  overflow: hidden;
+  transition: all .2s;
+}
+
+.color-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(28,37,48,.1);
+}
+
+.color-swatch-large {
+  height: 100px;
+  width: 100%;
+  position: relative;
+}
+
+.color-swatch-large::after {
+  content: 'نسخ الكود';
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  background: rgba(255,255,255,.95);
+  color: #1c2530;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-family: 'JetBrains Mono', monospace;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity .2s;
+}
+
+.color-card:hover .color-swatch-large::after {
+  opacity: 1;
+}
+
+.color-fields {
+  padding: 12px 14px;
+}
+
+.color-fields input[type=text] {
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+.color-hex-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.color-hex {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  color: var(--ink-soft);
+  background: var(--paper);
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background .2s;
+}
+
+.color-hex:hover {
+  background: var(--brass-soft);
+  color: var(--navy);
+}
+
+.color-hex.copied {
+  background: var(--ok);
+  color: #fff;
+}
+
+.color-card textarea {
+  min-height: 60px;
+  font-size: 12.5px;
+}
+
+.color-card .delete-btn {
+  width: 100%;
+  padding: 8px;
+  background: #fef0f0;
+  border: none;
+  border-top: 1px solid var(--paper-line);
+  color: var(--danger);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12.5px;
+  transition: background .2s;
+}
+
+.color-card .delete-btn:hover {
+  background: #ffe0e0;
+}
+
+/* --------------------------------------------------------------------------
+   لوحة التوقيع (Signature Pad)
+   -------------------------------------------------------------------------- */
+canvas#sigPad {
+  width: 100%;
+  max-width: 520px;
+  height: 180px;
+  background: var(--input-bg);
+  border: 1px solid var(--paper-line);
+  border-radius: 2px;
+  touch-action: none;
+  display: block;
+  cursor: crosshair;
+}
+
+.sig-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.approve-box {
+  margin-top: 18px;
+  padding: 14px 16px;
+  background: var(--empty-bg);
+  border: 1px solid var(--paper-line);
+  border-radius: 2px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.stamp {
+  margin-top: 16px;
+  padding: 14px 18px;
+  background: #eef3ec;
+  border: 1px solid #bcd4c1;
+  color: var(--ok);
+  border-radius: 2px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+body.dark-mode .stamp {
+  background: rgba(61,122,79,.2);
+  border-color: var(--ok);
+}
+
+/* --------------------------------------------------------------------------
+   بطاقات الملخص (Summary Cards)
+   -------------------------------------------------------------------------- */
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.summary-card {
+  background: var(--empty-bg);
+  border: 1px solid var(--paper-line);
+  padding: 12px 14px;
+  border-radius: 2px;
+}
+
+.summary-card .n {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 24px;
+  color: var(--navy);
+  font-weight: 700;
+}
+
+body.dark-mode .summary-card .n {
+  color: var(--brass-soft);
+}
+
+.summary-card .l {
+  font-size: 13px;
+  color: var(--ink-soft);
+  margin-top: 2px;
+}
+
+/* --------------------------------------------------------------------------
+   التلميحات العلوية (Top Hint)
+   -------------------------------------------------------------------------- */
+.top-hint {
+  font-size: 14px;
+  color: var(--ink-soft);
+  background: var(--empty-bg);
+  border: 1px solid var(--paper-line);
+  padding: 10px 14px;
+  border-radius: 2px;
+  margin-bottom: 16px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+input[type=file]{display:none;}
+input[type=file].show-file-input{display:block !important;}
+
+/* --------------------------------------------------------------------------
+   شاشة التحميل (Loading Overlay)
+   -------------------------------------------------------------------------- */
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(27,42,65,.85);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 16px;
+  gap: 16px;
+}
+
+.loading-overlay.hidden {
+  display: none;
+}
+
+.loading-spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid rgba(255,255,255,.3);
+  border-top-color: var(--brass);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.loading-progress {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  color: var(--brass-soft);
+}
+
+/* --------------------------------------------------------------------------
+   حالة المكتبات (Lib Status)
+   -------------------------------------------------------------------------- */
+.lib-status {
+  position: fixed;
+  bottom: 10px;
+  left: 10px;
+  z-index: 1000;
+  background: var(--card-bg);
+  border: 1px solid var(--paper-line);
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-size: 11px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.1);
+  display: none;
+  color: var(--ink);
+}
+
+.lib-status.show {
+  display: block;
+}
+
+.lib-status.error {
+  border-color: var(--danger);
+  background: #fef0f0;
+}
+
+.lib-status.success {
+  border-color: var(--ok);
+  background: #f0fef0;
+}
+
+/* --------------------------------------------------------------------------
+   مؤشر الحفظ التلقائي (Autosave Indicator)
+   -------------------------------------------------------------------------- */
+.autosave-indicator {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background: var(--ok);
+  color: #fff;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(0,0,0,.2);
+  opacity: 0;
+  transform: translateY(-20px);
+  transition: all .3s;
+  z-index: 1000;
+}
+
+.autosave-indicator.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* --------------------------------------------------------------------------
+   الطباعة (Print)
+   -------------------------------------------------------------------------- */
+@media print {
+  .sidebar, .no-print, .lib-status, .autosave-indicator, .theme-toggle-wrapper {
+    display: none !important;
+  }
+  .app {
+    display: block;
+  }
+  .main {
+    padding: 0;
+  }
+  .sheet {
+    box-shadow: none;
+    border: none;
+    max-width: 100%;
+    margin-bottom: 26px;
+    page-break-after: always;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   إمكانية الوصول (Accessibility)
+   -------------------------------------------------------------------------- */
+a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
+  outline: 2.5px solid var(--brass);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+* {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   الشريط العلوي للموبايل (Mobile Topbar)
+   -------------------------------------------------------------------------- */
+.mobile-topbar {
+  display: none;
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  align-items: center;
+  gap: 12px;
+  background: var(--sidebar-bg);
+  color: var(--sidebar-text);
+  padding: 12px 16px;
+  border-bottom: 3px solid var(--brass);
+}
+
+.mobile-menu-btn {
+  width: 38px;
+  height: 34px;
+  background: rgba(255,255,255,.08);
+  border: 1px solid rgba(255,255,255,.2);
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  cursor: pointer;
+  flex: 0 0 auto;
+  transition: background .2s;
+}
+
+.mobile-menu-btn:hover {
+  background: rgba(255,255,255,.16);
+}
+
+.mobile-menu-btn span {
+  width: 18px;
+  height: 2px;
+  background: #f3efe6;
+  border-radius: 2px;
+  transition: transform .25s ease, opacity .25s ease;
+}
+
+.mobile-menu-btn.open span:nth-child(1) {
+  transform: translateY(7px) rotate(45deg);
+}
+
+.mobile-menu-btn.open span:nth-child(2) {
+  opacity: 0;
+}
+
+.mobile-menu-btn.open span:nth-child(3) {
+  transform: translateY(-7px) rotate(-45deg);
+}
+
+.mobile-topbar-title {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+  overflow: hidden;
+}
+
+.mobile-topbar-kicker {
+  font-family: 'Tajawal', sans-serif !important;
+  font-size: 20px !important;
+  font-weight: 900 !important;
+  background: linear-gradient(135deg, #ffffff 0%, var(--brass-soft) 100%) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  background-clip: text !important;
+}
+
+#mobileTopbarTab {
+  font-size: 15px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* --------------------------------------------------------------------------
+   القائمة المنسدلة للموبايل (Drawer)
+   -------------------------------------------------------------------------- */
+.drawer-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(13,19,32,.55);
+  z-index: 19;
+  opacity: 0;
+  transition: opacity .25s ease;
+}
+
+@media (max-width: 820px) {
+  .mobile-topbar {
+    display: flex;
+  }
+  .sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    right: 0;
+    width: 280px;
+    max-width: 85vw;
+    z-index: 21;
+    transform: translateX(100%);
+    transition: transform .3s ease;
+    box-shadow: -8px 0 30px rgba(0,0,0,.3);
+    overflow-y: auto;
+  }
+  .sidebar.open {
+    transform: translateX(0);
+  }
+  .drawer-overlay.show {
+    display: block;
+    opacity: 1;
+  }
+  .theme-toggle-wrapper {
+    top: 14px;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   مسار التنقل (Breadcrumb)
+   -------------------------------------------------------------------------- */
+.breadcrumb {
+  max-width: 980px;
+  margin: 0 auto 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--ink-soft);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.breadcrumb .crumb-sep {
+  opacity: .5;
+}
+
+.breadcrumb .crumb-current {
+  color: var(--brass);
+  font-weight: 600;
+}
+
+/* --------------------------------------------------------------------------
+   تأثير النقر (Ripple Effect)
+   -------------------------------------------------------------------------- */
+.btn, .nav-item, .btn-icon, .ghost-btn {
+  position: relative;
+  overflow: hidden;
+}
+
+.ripple {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255,255,255,.5);
+  transform: scale(0);
+  animation: rippleAnim .55s ease-out;
+  pointer-events: none;
+}
+
+.btn-outline .ripple, .toggle-label-btn .ripple {
+  background: rgba(184,134,62,.35);
+}
+
+@keyframes rippleAnim {
+  to { transform: scale(2.6); opacity: 0; }
+}
+
+/* --------------------------------------------------------------------------
+   زر العودة للأعلى (Back to Top)
+   -------------------------------------------------------------------------- */
+.back-to-top {
+  position: fixed;
+  bottom: 24px;
+  left: 24px;
+  z-index: 900;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: none;
+  background: var(--navy);
+  color: #fff;
+  font-size: 18px;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0,0,0,.25);
+  opacity: 0;
+  transform: translateY(12px) scale(.9);
+  pointer-events: none;
+  transition: all .25s ease;
+}
+
+.back-to-top.show {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+
+.back-to-top:hover {
+  background: var(--brass);
+  color: #241a06;
+}
+
+/* --------------------------------------------------------------------------
+   الإشعارات (Toasts)
+   -------------------------------------------------------------------------- */
+.toast-stack {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 9500;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 10px;
+  max-width: 340px;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--card-bg);
+  color: var(--ink);
+  border: 1px solid var(--paper-line);
+  border-inline-start: 4px solid var(--ok);
+  padding: 12px 14px;
+  border-radius: 6px;
+  box-shadow: 0 6px 20px rgba(0,0,0,.15);
+  font-size: 14px;
+  animation: toastIn .3s ease;
+}
+
+.toast.toast-error {
+  border-inline-start-color: var(--danger);
+}
+
+.toast.toast-info {
+  border-inline-start-color: var(--brass);
+}
+
+.toast .toast-icon {
+  font-size: 16px;
+  flex: 0 0 auto;
+}
+
+.toast.toast-out {
+  animation: toastOut .25s ease forwards;
+}
+
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(12px) scale(.95); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes toastOut {
+  to { opacity: 0; transform: translateX(30px); }
+}
+
+/* --------------------------------------------------------------------------
+   نافذة التأكيد (Confirm Dialog)
+   -------------------------------------------------------------------------- */
+.confirm-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(13,19,32,.6);
+  z-index: 9600;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.confirm-overlay.show {
+  display: flex;
+  animation: fadeIn .2s ease;
+}
+
+.confirm-box {
+  background: var(--sheet);
+  border-radius: 10px;
+  max-width: 380px;
+  width: 100%;
+  padding: 26px 24px 20px;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0,0,0,.35);
+  animation: fadeIn .25s ease;
+}
+
+.confirm-icon {
+  font-size: 30px;
+  margin-bottom: 10px;
+}
+
+.confirm-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: 8px;
+}
+
+.confirm-msg {
+  font-size: 14px;
+  color: var(--ink-soft);
+  margin-bottom: 20px;
+  line-height: 1.6;
+}
+
+.confirm-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.confirm-actions .btn {
+  flex: 1;
+}
+
+/* --------------------------------------------------------------------------
+   عارض الصور (Lightbox)
+   -------------------------------------------------------------------------- */
+.lightbox {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(8,10,14,.94);
+  z-index: 9700;
+  align-items: center;
+  justify-content: center;
+}
+
+.lightbox.show {
+  display: flex;
+  animation: fadeIn .2s ease;
+}
+
+.lightbox-stage {
+  width: min(92vw, 1100px);
+  height: min(84vh, 800px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  touch-action: none;
+}
+
+.lightbox-stage img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  cursor: zoom-in;
+  user-select: none;
+  -webkit-user-drag: none;
+  transition: transform .15s ease;
+  transform-origin: center center;
+}
+
+.lightbox-stage img.zoomed {
+  cursor: grab;
+}
+
+.lightbox-stage img.dragging {
+  cursor: grabbing;
+  transition: none;
+}
+
+.lightbox-close {
+  position: absolute;
+  top: 18px;
+  left: 18px;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: rgba(255,255,255,.1);
+  border: 1px solid rgba(255,255,255,.25);
+  color: #fff;
+  font-size: 18px;
+  cursor: pointer;
+  transition: all .2s;
+}
+
+.lightbox-close:hover {
+  background: rgba(255,255,255,.22);
+}
+
+.lightbox-counter {
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  color: var(--brass-soft);
+  font-size: 13px;
+  background: rgba(255,255,255,.08);
+  padding: 5px 12px;
+  border-radius: 20px;
+}
+
+.lightbox-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: rgba(255,255,255,.1);
+  border: 1px solid rgba(255,255,255,.25);
+  color: #fff;
+  font-size: 26px;
+  cursor: pointer;
+  transition: all .2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lightbox-nav:hover {
+  background: var(--brass);
+  color: #241a06;
+}
+
+.lightbox-nav:disabled {
+  opacity: .25;
+  cursor: default;
+  pointer-events: none;
+}
+
+.lightbox-prev {
+  right: 20px;
+}
+
+.lightbox-next {
+  left: 20px;
+}
+
+.lightbox-hint {
+  position: absolute;
+  bottom: 18px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  color: #8fa0b3;
+  font-size: 11.5px;
+  letter-spacing: .03em;
+}
+
+@media (max-width: 700px) {
+  .lightbox-nav {
+    width: 42px;
+    height: 42px;
+    font-size: 20px;
+  }
+  .lightbox-prev {
+    right: 8px;
+  }
+  .lightbox-next {
+    left: 8px;
+  }
+  .lightbox-hint {
+    display: none;
+  }
+}
+
+.img-card .thumb-wrap {
+  cursor: zoom-in;
+}
+
+.img-card .thumb-wrap:hover img {
+  filter: brightness(1.04);
+}
+
+/* --------------------------------------------------------------------------
+   أنماط التقاط الـ PDF (PDF Capture Styles)
+   -------------------------------------------------------------------------- */
+.pdf-capture, .pdf-capture * {
+  animation: none !important;
+  transition: none !important;
+  letter-spacing: 0 !important;
+}
+
+.pdf-capture .img-strip {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 18px;
+  margin-bottom: 22px;
+}
+
+.pdf-capture .img-card {
+  width: 100%;
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: none;
+  border: 1px solid #e3dcc9;
+  break-inside: avoid;
+}
+
+.pdf-capture .img-card .thumb-wrap {
+  height: 300px;
+  background: #f1ede3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pdf-capture .img-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.pdf-capture .color-list {
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.pdf-capture .color-card {
+  break-inside: avoid;
+}
+
+.pdf-capture .color-swatch-large {
+  height: 130px;
+}
+
+.pdf-capture canvas#sigPad {
+  max-width: 460px;
+}
+
+.pdf-capture .summary-card {
+  break-inside: avoid;
+}
+
+.pdf-capture .sheet {
+  min-height: 0 !important;
+  height: auto !important;
+}
+
+.pdf-capture .body-pad {
+  padding: 26px 30px 34px;
+  overflow: visible !important;
+}
+
+.pdf-capture h2 {
+  font-size: 28px !important;
+}
+
+.pdf-capture h3.section-label {
+  font-size: 14px !important;
+  font-family: 'IBM Plex Sans Arabic', 'Tajawal', sans-serif !important;
+  text-transform: none !important;
+  margin-top: 6px;
+  margin-bottom: 14px;
+}
+
+.pdf-capture .summary-grid {
+  gap: 14px;
+  margin-bottom: 26px;
+}
+
+.pdf-capture .empty-note {
+  padding: 18px;
+  font-size: 14px !important;
+}
+
+.pdf-capture .pdf-caption {
+  display: block !important;
+  font-size: 13px !important;
+}
+
+.pdf-capture .top-hint {
+  font-size: 14px !important;
+  padding: 10px 14px !important;
+}
+
+.pdf-capture label.field-label {
+  font-size: 13px !important;
+}
+
+.pdf-capture input, .pdf-capture textarea {
+  font-size: 15px !important;
+  padding: 11px 13px !important;
+}
+
+.pdf-capture .img-placeholder {
+  background: #f1ede3;
+  border-radius: 4px;
+  position: relative;
+}
+
+.pdf-capture .img-placeholder::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 1px dashed #d9d2c1;
+  border-radius: 4px;
+}

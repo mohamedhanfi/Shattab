@@ -1,0 +1,1667 @@
+/* ==========================================================================
+   شطّب - دفتر مرجع التصميم
+   الملف الرئيسي للوظائف
+   الإصدار: 2.0 (بدون PDF - مع تصدير HTML وعلامة مائية)
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. بدء التطبيق عند تحميل الصفحة
+   -------------------------------------------------------------------------- */
+window.addEventListener('load', ()=>{
+  loadFromLocalStorage();
+  startAutoSave();
+});
+
+/* --------------------------------------------------------------------------
+   2. التخزين المحلي والحفظ التلقائي
+   -------------------------------------------------------------------------- */
+function saveToLocalStorage(){
+  try{
+    localStorage.setItem('designReferenceBook', JSON.stringify(state));
+    showAutosaveIndicator();
+    return true;
+  }catch(err){ 
+    console.warn('Auto-save failed:', err);
+    if(err.name === 'QuotaExceededError') {
+      showToast('تنبيه: الذاكرة ممتلئة! احذف بعض الصور أو صدر الملف كـ JSON', 'error');
+    }
+    return false;
+  }
+}
+
+function loadFromLocalStorage(){
+  try{
+    const saved = localStorage.getItem('designReferenceBook');
+    if(saved){
+      const loaded = JSON.parse(saved);
+      if(loaded.project) Object.assign(state.project, loaded.project);
+      if(loaded.rooms) state.rooms = loaded.rooms;
+      if(loaded.colors) state.colors = loaded.colors;
+      if(loaded.materials) state.materials = loaded.materials;
+      if(loaded.signature) Object.assign(state.signature, loaded.signature);
+      renderAll();
+    }
+  }catch(err){ 
+    console.warn('Load failed, clearing corrupted data:', err); 
+    localStorage.removeItem('designReferenceBook');
+  }
+}
+
+function showAutosaveIndicator(){
+  const indicator = document.getElementById('autosaveIndicator');
+  indicator.classList.add('show');
+  setTimeout(()=> indicator.classList.remove('show'), 2000);
+}
+
+function startAutoSave(){ 
+  setInterval(saveToLocalStorage, 30000); 
+}
+
+/* --------------------------------------------------------------------------
+   3. الوضع الليلي
+   -------------------------------------------------------------------------- */
+document.getElementById('themeToggle').onclick = ()=>{
+  document.body.classList.toggle('dark-mode');
+  const isDark = document.body.classList.contains('dark-mode');
+  localStorage.setItem('darkMode', isDark);
+  document.body.style.transition = 'background-color 0.5s ease, color 0.5s ease';
+};
+
+if(localStorage.getItem('darkMode') === 'true'){
+  document.body.classList.add('dark-mode');
+}
+
+/* --------------------------------------------------------------------------
+   4. حالة التطبيق (State)
+   -------------------------------------------------------------------------- */
+let uid = 1;
+const newId = () => 'id' + (uid++) + '_' + Date.now().toString(36);
+
+const state = {
+  project: { 
+    name: '', 
+    client: '', 
+    engineer: '', 
+    date: new Date().toISOString().slice(0,10) 
+  },
+  rooms: [ 
+    mkRoom('غرفة النوم'), 
+    mkRoom('الحمام'), 
+    mkRoom('المطبخ'), 
+    mkRoom('الصالة') 
+  ],
+  colors: [],
+  materials: [],
+  signature: { 
+    dataUrl: '', 
+    name: '', 
+    date: new Date().toISOString().slice(0,10), 
+    approved: false, 
+    approvedAt: '' 
+  }
+};
+
+function mkRoom(name){ 
+  return { id: newId(), name, images: [], notes: '' }; 
+}
+
+let currentTab = 'project';
+
+function sheetTagForRoom(index){ 
+  return 'A-' + (101 + index); 
+}
+
+/* --------------------------------------------------------------------------
+   5. شريط التقدم
+   -------------------------------------------------------------------------- */
+function updateProgress(){
+  const totalTasks = Math.max(1, state.rooms.length + 1);
+  const completedTasks = state.rooms.filter(r => r.images.length > 0).length + (state.project.name ? 1 : 0);
+  const percent = Math.min(100, Math.round((completedTasks / totalTasks) * 100));
+  document.getElementById('progressPercent').textContent = percent + '%';
+  document.getElementById('progressFill').style.width = percent + '%';
+}
+
+/* --------------------------------------------------------------------------
+   6. الشريط الجانبي (Sidebar)
+   -------------------------------------------------------------------------- */
+function renderSidebar(){
+  document.getElementById('projectSubtitle').textContent = 
+    state.project.name ? ('مشروع: ' + state.project.name) : 'بدون اسم مشروع بعد';
+  
+  // لوحة المشروع
+  const navProject = document.getElementById('navProject'); 
+  navProject.innerHTML = '';
+  navProject.appendChild(navItem('A-100', 'بيانات المشروع', 'project', currentTab==='project'));
+
+  // الغرف
+  const navRooms = document.getElementById('navRooms'); 
+  navRooms.innerHTML = '';
+  state.rooms.forEach((room, i)=>{
+    const item = navItem(sheetTagForRoom(i), room.name, room.id, currentTab===room.id, room.images.length);
+    // Drag & Drop لإعادة الترتيب
+    item.draggable = true; 
+    item.dataset.roomId = room.id;
+    item.addEventListener('dragstart', handleDragStart);
+    item.addEventListener('dragover', handleDragOver);
+    item.addEventListener('drop', handleDrop);
+    item.addEventListener('dragend', handleDragEnd);
+    navRooms.appendChild(item);
+  });
+
+  // الإنهاء
+  const navEnd = document.getElementById('navEnd'); 
+  navEnd.innerHTML = '';
+  navEnd.appendChild(navItem('A-900', 'الألوان والدهانات', 'colors', currentTab==='colors', state.colors.length));
+  navEnd.appendChild(navItem('A-950', 'المواد والخامات', 'materials', currentTab==='materials', state.materials.length));
+  navEnd.appendChild(navItem('A-999', 'اعتماد التصميم', 'signature', currentTab==='signature'));
+  
+  updateProgress();
+}
+
+/* --------------------------------------------------------------------------
+   7. Drag & Drop للغرف
+   -------------------------------------------------------------------------- */
+let draggedRoomId = null;
+
+function handleDragStart(e){ 
+  draggedRoomId = this.dataset.roomId; 
+  this.style.opacity = '0.4'; 
+  e.dataTransfer.effectAllowed = 'move';
+}
+
+function handleDragOver(e){ 
+  e.preventDefault(); 
+  this.style.borderTop = '2px solid var(--brass)';
+  e.dataTransfer.dropEffect = 'move';
+}
+
+function handleDrop(e){
+  e.preventDefault(); 
+  this.style.borderTop = '';
+  const targetId = this.dataset.roomId;
+  if(!draggedRoomId || draggedRoomId === targetId) return;
+  
+  const fromIndex = state.rooms.findIndex(r => r.id === draggedRoomId);
+  const toIndex = state.rooms.findIndex(r => r.id === targetId);
+  if(fromIndex === -1 || toIndex === -1) return;
+  
+  const [moved] = state.rooms.splice(fromIndex, 1);
+  state.rooms.splice(toIndex, 0, moved);
+  saveToLocalStorage(); 
+  renderSidebar(); 
+  showToast('تم إعادة ترتيب الغرف', 'success');
+}
+
+function handleDragEnd(e){ 
+  this.style.opacity = ''; 
+  document.querySelectorAll('.nav-item').forEach(i => i.style.borderTop = '');
+}
+
+/* --------------------------------------------------------------------------
+   8. عناصر التنقل
+   -------------------------------------------------------------------------- */
+function navItem(tag, label, tabKey, active, count){
+  const btn = document.createElement('button');
+  btn.className = 'nav-item' + (active ? ' active' : '');
+  btn.innerHTML = `<span class="tag">${tag}</span><span>${escapeHtml(label)}</span>` + 
+    (count !== undefined ? `<span class="count">${count}</span>` : '');
+  btn.onclick = ()=>{ currentTab = tabKey; renderAll(); };
+  return btn;
+}
+
+const TAB_LABELS = { 
+  project: 'بيانات المشروع', 
+  colors: 'الألوان والدهانات', 
+  materials: 'المواد والخامات', 
+  signature: 'اعتماد التصميم' 
+};
+
+function tabLabel(tab){ 
+  return TAB_LABELS[tab] || (state.rooms.find(r=>r.id===tab)?.name || ''); 
+}
+
+function renderBreadcrumb(){
+  document.getElementById('breadcrumb').innerHTML = 
+    `<span>شطّب</span><span class="crumb-sep">/</span><span class="crumb-current">${escapeHtml(tabLabel(currentTab))}</span>`;
+  const mt = document.getElementById('mobileTopbarTab'); 
+  if(mt) mt.textContent = tabLabel(currentTab);
+}
+
+/* --------------------------------------------------------------------------
+   9. عرض كل شيء
+   -------------------------------------------------------------------------- */
+function renderAll(){
+  renderSidebar(); 
+  renderBreadcrumb();
+  const main = document.getElementById('mainContent'); 
+  main.innerHTML = '';
+  
+  if(currentTab === 'project') main.appendChild(renderProjectSheet());
+  else if(currentTab === 'colors') main.appendChild(renderColorsSheet());
+  else if(currentTab === 'materials') main.appendChild(renderMaterialsSheet());
+  else if(currentTab === 'signature') main.appendChild(renderSignatureSheet());
+  else { 
+    const room = state.rooms.find(r=>r.id===currentTab); 
+    if(room) main.appendChild(renderRoomSheet(room)); 
+  }
+  closeDrawer();
+}
+
+function sheetShell(tag, title, desc, bodyEl){
+  const wrap = document.createElement('div'); 
+  wrap.className = 'sheet';
+  wrap.innerHTML = `<div class="title-block"><div><h2>${escapeHtml(title)}</h2><div class="desc">${escapeHtml(desc)}</div></div><div class="sheet-tag mono">${tag}</div></div><div class="body-pad"></div>`;
+  wrap.querySelector('.body-pad').appendChild(bodyEl); 
+  return wrap;
+}
+
+/* --------------------------------------------------------------------------
+   10. صفحة المشروع
+   -------------------------------------------------------------------------- */
+function renderProjectSheet(){
+  const body = document.createElement('div');
+  body.innerHTML = `
+    <div class="top-hint">هذا الملف بمثابة دفتر مرجعي يوثّق اختيارات العميل قبل التنفيذ.</div>
+    <h3 class="section-label">بيانات المشروع</h3>
+    <div class="field-row">
+      <div class="field"><label class="field-label">اسم المشروع</label><input type="text" id="pName" placeholder="مثال: شقة التجمع الخامس"></div>
+      <div class="field"><label class="field-label">اسم العميل</label><input type="text" id="pClient" placeholder="اسم العميل"></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label class="field-label">اسم المهندس / المصمم</label><input type="text" id="pEngineer" placeholder="اسمك"></div>
+      <div class="field"><label class="field-label">التاريخ</label><input type="date" id="pDate"></div>
+    </div>
+    <div class="summary-grid" id="projectSummary"></div>`;
+  
+  body.querySelector('#pName').value = state.project.name;
+  body.querySelector('#pClient').value = state.project.client;
+  body.querySelector('#pEngineer').value = state.project.engineer;
+  body.querySelector('#pDate').value = state.project.date;
+
+  body.querySelector('#pName').oninput = e=>{ state.project.name=e.target.value; renderSidebar(); saveToLocalStorage(); };
+  body.querySelector('#pClient').oninput = e=>{ state.project.client=e.target.value; saveToLocalStorage(); };
+  body.querySelector('#pEngineer').oninput = e=>{ state.project.engineer=e.target.value; saveToLocalStorage(); };
+  body.querySelector('#pDate').oninput = e=>{ state.project.date=e.target.value; saveToLocalStorage(); };
+
+  const summary = body.querySelector('#projectSummary');
+  const totalImgs = state.rooms.reduce((s,r)=>s+r.images.length,0);
+  [
+    ['عدد الغرف', state.rooms.length], 
+    ['إجمالي الصور', totalImgs], 
+    ['عدد الألوان', state.colors.length], 
+    ['عدد الخامات', state.materials.length], 
+    ['حالة الاعتماد', state.signature.approved ? 'معتمد ✓' : 'بانتظار التوقيع']
+  ].forEach(([l,n])=>{
+    const c = document.createElement('div'); 
+    c.className = 'summary-card'; 
+    c.innerHTML = `<div class="n mono">${n}</div><div class="l">${l}</div>`; 
+    summary.appendChild(c);
+  });
+  
+  return sheetShell('A-100', 'بيانات المشروع', 'صفحة الغلاف', body);
+}
+
+/* --------------------------------------------------------------------------
+   11. صفحة الغرفة
+   -------------------------------------------------------------------------- */
+function renderRoomSheet(room){
+  const idx = state.rooms.indexOf(room);
+  const body = document.createElement('div');
+  
+  body.appendChild(header(room, idx));
+  
+  const st = document.createElement('h3'); 
+  st.className = 'section-label'; 
+  st.textContent = `الصور المرجعية (${room.images.length})`; 
+  body.appendChild(st);
+  
+  const dz = document.createElement('div'); 
+  dz.className = 'dropzone no-print';
+  dz.innerHTML = `<strong>اضغط هنا لرفع صور ${escapeHtml(room.name)}</strong><div class="hint">أو اسحب الصور وأفلتها هنا</div>`;
+  const fi = document.createElement('input'); 
+  fi.type = 'file'; 
+  fi.accept = 'image/*'; 
+  fi.multiple = true;
+  dz.appendChild(fi); 
+  dz.onclick = ()=>fi.click();
+  
+  ['dragover','dragenter'].forEach(e=>dz.addEventListener(e,ev=>{ev.preventDefault();dz.classList.add('drag');}));
+  ['dragleave','drop'].forEach(e=>dz.addEventListener(e,ev=>{ev.preventDefault();dz.classList.remove('drag');}));
+  dz.addEventListener('drop', e=>handleFiles(room, e.dataTransfer.files)); 
+  fi.onchange = e=>handleFiles(room, e.target.files);
+  body.appendChild(dz);
+  
+  if(!room.images.length){ 
+    const em = document.createElement('div'); 
+    em.className = 'empty-note'; 
+    em.textContent = 'لا توجد صور مرفوعة بعد.'; 
+    body.appendChild(em); 
+  } else { 
+    const strip = document.createElement('div'); 
+    strip.className = 'img-strip'; 
+    room.images.forEach((img,i)=>strip.appendChild(imageCard(room,img,i))); 
+    body.appendChild(strip); 
+  }
+  
+  const nw = document.createElement('div'); 
+  const nt = document.createElement('h3'); 
+  nt.className = 'section-label'; 
+  nt.textContent = `ملاحظات ${room.name}`; 
+  nw.appendChild(nt);
+  const na = document.createElement('textarea'); 
+  na.placeholder = 'اكتب هنا أي ملاحظات...'; 
+  na.value = room.notes; 
+  na.oninput = e=>{room.notes=e.target.value;saveToLocalStorage();}; 
+  nw.appendChild(na); 
+  body.appendChild(nw);
+  
+  return sheetShell(sheetTagForRoom(idx), room.name, 'مرجع الصور والملاحظات', body);
+}
+
+/* --------------------------------------------------------------------------
+   12. هيدر الغرفة مع زر الحذف
+   -------------------------------------------------------------------------- */
+function header(room, idx){
+  const h = document.createElement('div');
+  h.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding:10px 14px;background:#faf8f3;border-radius:6px;border:1px solid #e3dcc9;position:relative;z-index:10;';
+  
+  const ni = document.createElement('input'); 
+  ni.type = 'text'; 
+  ni.value = room.name; 
+  ni.style.cssText = 'max-width:260px;font-weight:600;font-size:15px;padding:6px 10px;border:1px solid #d9d2c1;border-radius:4px;';
+  ni.oninput = e=>{room.name=e.target.value||room.name;renderSidebar();saveToLocalStorage();};
+  
+  const del = document.createElement('button'); 
+  del.className = 'btn-danger-text'; 
+  del.textContent = '🗑️ حذف هذه الغرفة';
+  del.style.cssText = 'color:#a83f3f;font-size:14px;font-weight:700;cursor:pointer;padding:8px 14px;border:1px solid #a83f3f;border-radius:4px;background:#fff;white-space:nowrap;transition:all 0.2s;position:relative;z-index:99999;pointer-events:auto;';
+  del.onmouseover = ()=>{del.style.background='#a83f3f';del.style.color='#fff';};
+  del.onmouseout = ()=>{del.style.background='#fff';del.style.color='#a83f3f';};
+  
+  del.addEventListener('click', function(event){
+    event.preventDefault(); 
+    event.stopPropagation();
+    if(window.confirm('هل أنت متأكد من حذف غرفة "'+room.name+'"؟')){
+      const i = state.rooms.findIndex(r=>r.id===room.id);
+      if(i !== -1){
+        state.rooms.splice(i,1);
+        saveToLocalStorage();
+        currentTab = 'project';
+        renderAll();
+        showToast('تم حذف غرفة "'+room.name+'" بنجاح','info');
+      }
+    }
+  });
+  
+  const left = document.createElement('div'); 
+  left.style.cssText = 'display:flex;align-items:center;gap:10px;flex:1;';
+  left.innerHTML = '<label style="font-weight:600;color:var(--ink-soft);">اسم الغرفة:</label>'; 
+  left.appendChild(ni);
+  
+  h.appendChild(left); 
+  h.appendChild(del); 
+  return h;
+}
+
+/* --------------------------------------------------------------------------
+   13. بطاقة الصورة مع المعاينة
+   -------------------------------------------------------------------------- */
+function imageCard(room, img, i){
+  const card = document.createElement('div'); 
+  card.className = 'img-card'; 
+  card.style.cssText = 'transition:all 0.3s cubic-bezier(0.4,0,0.2,1);';
+  const isPrimary = img.label === 'أساسي';
+  
+  card.innerHTML = `
+    <div class="thumb-wrap" style="position:relative;overflow:hidden;">
+      <img src="${img.dataUrl}" alt="صورة ${i+1}" loading="lazy" style="transition:transform 0.4s ease;">
+      <span class="badge-order mono">${i+1}</span>
+      <span class="badge-label ${isPrimary?'primary':'alt'}">${isPrimary?'أساسي':'بديل'}</span>
+      <div class="img-overlay" style="position:absolute;inset:0;background:rgba(0,0,0,0);display:flex;align-items:center;justify-content:center;transition:all 0.3s;cursor:zoom-in;">
+        <span style="color:#fff;font-size:24px;opacity:0;transition:opacity 0.3s;">🔍</span>
+      </div>
+    </div>
+    <div class="pdf-caption" style="display:none;padding:6px 10px;font-size:11px;text-align:center;color:#3d4c5e;border-top:1px solid #e3dcc9;">
+      صورة ${i+1} — ${isPrimary?'أساسي':'بديل'}
+    </div>
+    <div class="controls">
+      <div class="arrows no-print">
+        <button class="btn-icon" data-act="up">↑</button>
+        <button class="btn-icon" data-act="down">↓</button>
+      </div>
+      <button class="btn-icon no-print" data-act="del">🗑️</button>
+    </div>
+    <div class="controls no-print" style="border-top:none;padding-top:0;">
+      <button class="toggle-label-btn" data-act="toggle">تبديل: أساسي / بديل</button>
+    </div>`;
+  
+  const imgEl = card.querySelector('img'), 
+        ov = card.querySelector('.img-overlay'), 
+        oi = ov.querySelector('span');
+  
+  card.querySelector('.thumb-wrap').addEventListener('mouseenter',()=>{
+    imgEl.style.transform='scale(1.08)';
+    ov.style.background='rgba(0,0,0,0.3)';
+    oi.style.opacity='1';
+  });
+  
+  card.querySelector('.thumb-wrap').addEventListener('mouseleave',()=>{
+    imgEl.style.transform='scale(1)';
+    ov.style.background='rgba(0,0,0,0)';
+    oi.style.opacity='0';
+  });
+  
+  card.querySelector('.thumb-wrap').addEventListener('click', e=>{
+    if(!e.target.closest('button')) openLightbox(room.images, i);
+  });
+  
+  card.querySelector('[data-act=up]').onclick = ()=>{
+    if(i>0){[room.images[i-1],room.images[i]]=[room.images[i],room.images[i-1]];renderAll();saveToLocalStorage();}
+  };
+  
+  card.querySelector('[data-act=down]').onclick = ()=>{
+    if(i<room.images.length-1){[room.images[i+1],room.images[i]]=[room.images[i],room.images[i+1]];renderAll();saveToLocalStorage();}
+  };
+  
+  card.querySelector('[data-act=del]').onclick = ()=>{
+    if(window.confirm('حذف هذه الصورة؟')){
+      room.images.splice(i,1);
+      renderAll();
+      saveToLocalStorage();
+      showToast('تم الحذف','info');
+    }
+  };
+  
+  card.querySelector('[data-act=toggle]').onclick = ()=>{
+    img.label = isPrimary?'بديل':'أساسي';
+    renderAll();
+    saveToLocalStorage();
+  };
+  
+  return card;
+}
+
+/* --------------------------------------------------------------------------
+   14. ضغط ذكي للصور
+   -------------------------------------------------------------------------- */
+function compressImageSmart(file, maxWidth=1600, quality=0.85){
+  return new Promise((resolve, reject)=>{
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const img = new Image(); 
+      img.onload = ()=>{
+        const c = document.createElement('canvas'); 
+        let w = img.width, h = img.height;
+        if(w > maxWidth){ h = (h*maxWidth)/w; w = maxWidth; }
+        c.width = w; 
+        c.height = h;
+        const ctx = c.getContext('2d'); 
+        ctx.imageSmoothingEnabled = true; 
+        ctx.imageSmoothingQuality = 'high'; 
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(c.toDataURL(file.type==='image/png' && file.size<500000 ? 'image/png' : 'image/jpeg', quality));
+      }; 
+      img.onerror = reject; 
+      img.src = ev.target.result;
+    }; 
+    reader.onerror = reject; 
+    reader.readAsDataURL(file);
+  });
+}
+
+async function handleFiles(room, fileList){
+  const files = Array.from(fileList||[]).filter(f=>f.type.startsWith('image/')); 
+  if(!files.length) return;
+  showToast('جاري رفع الصور...','info'); 
+  let count = 0;
+  for(const file of files){
+    try{
+      const d = await compressImageSmart(file, 1600, 0.85);
+      room.images.push({id:newId(), dataUrl:d, label:room.images.length===0?'أساسي':'بديل'});
+      count++;
+    }catch(e){}
+  }
+  renderAll(); 
+  saveToLocalStorage(); 
+  showToast(`تم رفع ${count} صورة بنجاح`,'success');
+}
+
+function readFileAsDataURL(file){
+  return new Promise((r,e)=>{
+    const rd = new FileReader();
+    rd.onload = ev => r(ev.target.result);
+    rd.onerror = e;
+    rd.readAsDataURL(file);
+  });
+}
+
+/* --------------------------------------------------------------------------
+   15. صفحة الألوان مع البحث
+   -------------------------------------------------------------------------- */
+function renderColorsSheet(){
+  const body = document.createElement('div');
+  
+  const t1 = document.createElement('h3'); 
+  t1.className = 'section-label'; 
+  t1.textContent = 'إضافة لون / دهان جديد'; 
+  body.appendChild(t1);
+  
+  const ar = document.createElement('div'); 
+  ar.className = 'color-add-row';
+  ar.innerHTML = `<div><label class="field-label">اللون</label><input type="color" class="swatch-input" id="newColorHex" value="#a85c3f"></div>
+    <div style="flex:1;min-width:180px;"><label class="field-label">اسم / وصف اللون</label><input type="text" id="newColorName" placeholder="مثال: دهان جدران"></div>
+    <button class="btn btn-brass" id="addColorBtn">+ إضافة</button>`;
+  body.appendChild(ar);
+  
+  const sr = document.createElement('div'); 
+  sr.style.cssText = 'margin:20px 0 14px;display:flex;gap:10px;align-items:center;';
+  sr.innerHTML = `<div style="flex:1;"><label class="field-label">البحث عن لون</label><input type="text" id="colorSearch" placeholder="ابحث بالاسم أو الكود" style="padding:10px 12px;"></div>
+    <button class="btn btn-outline" id="clearColorSearch" style="margin-top:20px;">مسح</button>`;
+  body.appendChild(sr);
+  
+  const t2 = document.createElement('h3'); 
+  t2.className = 'section-label'; 
+  t2.style.marginTop = '22px'; 
+  t2.textContent = `الألوان المختارة (${state.colors.length})`; 
+  body.appendChild(t2);
+  
+  if(!state.colors.length){
+    const em = document.createElement('div');
+    em.className = 'empty-note';
+    em.textContent = 'لا توجد ألوان مضافة بعد.';
+    body.appendChild(em);
+  } else {
+    const list = document.createElement('div');
+    list.className = 'color-list';
+    list.id = 'colorList';
+    state.colors.forEach((c,i)=>list.appendChild(colorCard(c,i)));
+    body.appendChild(list);
+  }
+  
+  body.querySelector('#addColorBtn').onclick = ()=>{
+    const hex = body.querySelector('#newColorHex').value;
+    const name = body.querySelector('#newColorName').value.trim();
+    if(!name){showToast('اكتب اسم اللون','error');return;}
+    state.colors.push({id:newId(), hex, name, note:''});
+    renderAll();
+    saveToLocalStorage();
+    showToast('تمت إضافة اللون','success');
+  };
+  
+  const si = body.querySelector('#colorSearch');
+  const cb = body.querySelector('#clearColorSearch');
+  si.oninput = ()=>filterColors(si.value); 
+  cb.onclick = ()=>{si.value='';filterColors('');};
+  
+  return sheetShell('A-900','الألوان والدهانات','مرجع الألوان',body);
+}
+
+function filterColors(query){
+  const list = document.getElementById('colorList'); 
+  if(!list) return; 
+  const q = query.toLowerCase().trim(); 
+  list.innerHTML = '';
+  state.colors.forEach((c,i)=>{
+    if(q==='' || c.name.toLowerCase().includes(q) || c.hex.toLowerCase().includes(q))
+      list.appendChild(colorCard(c,i));
+  });
+}
+
+function colorCard(c,i){
+  const card = document.createElement('div'); 
+  card.className = 'color-card'; 
+  card.style.cssText = 'transition:all 0.3s ease;';
+  card.innerHTML = `
+    <div class="color-swatch-large" style="background:${c.hex};height:140px;position:relative;">
+      <div style="position:absolute;bottom:8px;right:8px;background:rgba(255,255,255,0.95);padding:4px 10px;border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;color:#1c2530;">${c.hex}</div>
+    </div>
+    <div class="color-fields">
+      <input type="text" value="${escapeAttr(c.name)}" placeholder="اسم اللون" style="font-size:15px;font-weight:600;margin-bottom:8px;">
+      <div class="color-hex-row">
+        <span class="color-hex mono" onclick="copyHex('${c.hex}',this)" style="cursor:pointer;padding:6px 10px;background:var(--paper);border-radius:4px;">${c.hex} — انسخ</span>
+      </div>
+      <textarea placeholder="ملاحظات...">${escapeHtml(c.note)}</textarea>
+    </div>
+    <button class="delete-btn" onclick="deleteColor(${i})">حذف هذا اللون</button>`;
+  card.querySelector('input[type=text]').oninput = e=>{c.name=e.target.value;saveToLocalStorage();};
+  card.querySelector('textarea').oninput = e=>{c.note=e.target.value;saveToLocalStorage();};
+  return card;
+}
+
+function copyHex(hex,el){
+  navigator.clipboard.writeText(hex).then(()=>{
+    el.classList.add('copied');
+    el.textContent = '✓ تم النسخ';
+    setTimeout(()=>{el.classList.remove('copied');el.textContent=hex+' — انسخ';},2000);
+  });
+}
+
+function deleteColor(i){
+  if(window.confirm('حذف هذا اللون؟')){
+    state.colors.splice(i,1);
+    renderAll();
+    saveToLocalStorage();
+    showToast('تم الحذف','info');
+  }
+}
+
+/* --------------------------------------------------------------------------
+   16. صفحة المواد والخامات (مع ربط الغرف ومعاينة الصور)
+   -------------------------------------------------------------------------- */
+function renderMaterialsSheet(){
+  const body = document.createElement('div');
+  
+  const t1 = document.createElement('h3');
+  t1.className = 'section-label';
+  t1.textContent = 'إضافة مادة / خامة جديدة';
+  body.appendChild(t1);
+  
+  const roomsOpts = state.rooms.map(r=>`<option value="${r.id}">${escapeHtml(r.name)}</option>`).join('');
+  
+  const ar = document.createElement('div');
+  ar.className = 'color-add-row';
+  ar.style.cssText = 'flex-wrap:wrap;gap:12px;';
+  ar.innerHTML = `
+    <div style="flex:1;min-width:200px;"><label class="field-label">اسم الخامة</label><input type="text" id="newMatName" placeholder="مثال: سيراميك بورسلان أبيض"></div>
+    <div style="flex:1;min-width:150px;"><label class="field-label">نوع الخامة</label><select id="newMatType" style="width:100%;padding:10px 12px;border:1px solid var(--paper-line);border-radius:var(--radius);background:var(--input-bg);font-family:inherit;font-size:14px;"><option value="أرضيات">أرضيات</option><option value="جدران">جدران</option><option value="أسقف">أسقف</option><option value="إكسسوارات">إكسسوارات</option><option value="أثاث">أثاث</option><option value="إضاءة">إضاءة</option><option value="أخرى">أخرى</option></select></div>
+    <div style="flex:1;min-width:150px;"><label class="field-label">الغرفة</label><select id="newMatRoom" style="width:100%;padding:10px 12px;border:1px solid var(--paper-line);border-radius:var(--radius);background:var(--input-bg);font-family:inherit;font-size:14px;"><option value="">-- اختر الغرفة --</option>${roomsOpts}</select></div>
+    <div style="flex:1;min-width:150px;"><label class="field-label">الكود / الموديل</label><input type="text" id="newMatCode" placeholder="مثال: SK-2024-001"></div>
+    <div style="flex:1;min-width:200px;"><label class="field-label">صورة الخامة</label><div id="matImageDropzone" style="border:2px dashed var(--paper-line);border-radius:var(--radius);padding:12px;text-align:center;cursor:pointer;background:var(--empty-bg);transition:all 0.2s;position:relative;"><span id="matImageLabel" style="color:var(--ink-soft);font-size:13px;"> اضغط لاختيار صورة</span><input type="file" id="newMatImage" accept="image/*" style="display:block !important;width:100%;height:100%;opacity:0;position:absolute;top:0;left:0;cursor:pointer;"></div><img id="matImagePreview" style="max-width:100%;max-height:100px;margin-top:8px;border-radius:4px;display:none;border:1px solid var(--paper-line);cursor:pointer;" title="اضغط للمعاينة"></div>
+    <button class="btn btn-brass" id="addMatBtn" style="margin-top:20px;">+ إضافة الخامة</button>`;
+  body.appendChild(ar);
+  
+  const fr = document.createElement('div');
+  fr.style.cssText = 'margin:20px 0 14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;';
+  fr.innerHTML = `
+    <div style="flex:1;min-width:200px;"><label class="field-label">البحث</label><input type="text" id="matSearch" placeholder="ابحث بالاسم أو الكود" style="padding:10px 12px;"></div>
+    <div style="min-width:150px;"><label class="field-label">تصفية حسب الغرفة</label><select id="matRoomFilter" style="width:100%;padding:10px 12px;border:1px solid var(--paper-line);border-radius:var(--radius);background:var(--input-bg);font-family:inherit;font-size:14px;"><option value="">كل الغرف</option>${roomsOpts}</select></div>
+    <button class="btn btn-outline" id="clearMatSearch" style="margin-top:20px;">مسح</button>`;
+  body.appendChild(fr);
+  
+  const t2 = document.createElement('h3');
+  t2.className = 'section-label';
+  t2.style.marginTop = '22px';
+  t2.textContent = `الخامات المختارة (${state.materials.length})`;
+  body.appendChild(t2);
+  
+  if(!state.materials.length){
+    const em = document.createElement('div');
+    em.className = 'empty-note';
+    em.textContent = 'لا توجد خامات مضافة بعد.';
+    body.appendChild(em);
+  } else {
+    const list = document.createElement('div');
+    list.className = 'color-list';
+    list.id = 'materialList';
+    list.style.gridTemplateColumns = 'repeat(auto-fill,minmax(300px,1fr))';
+    state.materials.forEach((m,i)=>list.appendChild(materialCard(m,i)));
+    body.appendChild(list);
+  }
+  
+  const mii = body.querySelector('#newMatImage');
+  const mip = body.querySelector('#matImagePreview');
+  const mil = body.querySelector('#matImageLabel');
+  const mid = body.querySelector('#matImageDropzone');
+  
+  mid.addEventListener('dragover', e=>{e.preventDefault();mid.style.borderColor='var(--brass)';mid.style.background='rgba(184,134,62,0.1)';});
+  mid.addEventListener('dragleave', e=>{e.preventDefault();mid.style.borderColor='var(--paper-line)';mid.style.background='var(--empty-bg)';});
+  mid.addEventListener('drop', e=>{e.preventDefault();mid.style.borderColor='var(--paper-line)';mid.style.background='var(--empty-bg)';if(e.dataTransfer.files.length>0){mii.files=e.dataTransfer.files;prevMatImg();}});
+  mii.onchange = prevMatImg;
+  
+  mip.onclick = ()=>{
+    if(mip.src && mip.style.display!=='none')
+      openLightbox([{dataUrl:mip.src,label:'معاينة'}],0);
+  };
+  
+  function prevMatImg(){
+    const f = mii.files[0];
+    if(f){
+      const r = new FileReader();
+      r.onload = e=>{
+        mip.src = e.target.result;
+        mip.style.display = 'block';
+        mil.textContent = '✓ ' + f.name;
+      };
+      r.readAsDataURL(f);
+    } else {
+      mip.style.display = 'none';
+      mil.textContent = ' اضغط لاختيار صورة';
+    }
+  }
+  
+  body.querySelector('#addMatBtn').onclick = async ()=>{
+    const name = body.querySelector('#newMatName').value.trim();
+    const type = body.querySelector('#newMatType').value;
+    const roomId = body.querySelector('#newMatRoom').value;
+    const code = body.querySelector('#newMatCode').value.trim();
+    const imgF = mii.files[0];
+    
+    if(!name){showToast('اكتب اسم الخامة','error');return;}
+    
+    let imgD = '';
+    if(imgF) try{imgD = await compressImageSmart(imgF,1600,0.85);}catch(e){}
+    
+    state.materials.push({id:newId(), name, type, roomId, code, image:imgD, note:''});
+    
+    body.querySelector('#newMatName').value = '';
+    body.querySelector('#newMatCode').value = '';
+    body.querySelector('#newMatRoom').value = '';
+    mii.value = '';
+    mip.style.display = 'none';
+    mil.textContent = '📷 اضغط لاختيار صورة';
+    
+    renderAll();
+    saveToLocalStorage();
+    showToast('تمت إضافة الخامة','success');
+  };
+  
+  const si = body.querySelector('#matSearch');
+  const rf = body.querySelector('#matRoomFilter');
+  const cb = body.querySelector('#clearMatSearch');
+  const af = ()=>filterMaterials(si.value, rf.value);
+  si.oninput = af; 
+  rf.onchange = af; 
+  cb.onclick = ()=>{si.value='';rf.value='';filterMaterials('','');};
+  
+  return sheetShell('A-950','المواد والخامات','مرجع الخامات والمواد',body);
+}
+
+function filterMaterials(query, roomId=''){
+  const list = document.getElementById('materialList');
+  if(!list) return;
+  const q = query.toLowerCase().trim();
+  list.innerHTML = '';
+  state.materials.forEach((m,i)=>{
+    const match = (q==='' || m.name.toLowerCase().includes(q) || (m.code&&m.code.toLowerCase().includes(q)) || m.type.toLowerCase().includes(q)) && (!roomId||m.roomId===roomId);
+    if(match) list.appendChild(materialCard(m,i));
+  });
+}
+
+function materialCard(m,i){
+  const card = document.createElement('div');
+  card.className = 'color-card';
+  card.style.cssText = 'transition:all 0.3s ease;';
+  
+  const room = state.rooms.find(r=>r.id===m.roomId);
+  const rn = room ? escapeHtml(room.name) : 'غير محدد';
+  
+  const imgH = m.image 
+    ? `<div style="height:160px;background:#f1ede3;overflow:hidden;position:relative;cursor:pointer;" class="mat-image-preview">
+        <img src="${m.image}" style="width:100%;height:100%;object-fit:cover;transition:transform 0.4s ease;" loading="lazy">
+        <div style="position:absolute;inset:0;background:rgba(0,0,0,0);display:flex;align-items:center;justify-content:center;transition:all 0.3s;">
+          <span style="color:#fff;font-size:24px;opacity:0;transition:opacity 0.3s;">🔍</span>
+        </div>
+        <div style="position:absolute;top:8px;right:8px;background:var(--brass);color:#241a06;padding:3px 8px;border-radius:3px;font-size:10px;font-weight:700;">${escapeHtml(m.type)}</div>
+      </div>`
+    : `<div style="height:160px;background:linear-gradient(135deg,#f1ede3,#e3dcc9);display:flex;align-items:center;justify-content:center;position:relative;">
+        <span style="font-size:48px;opacity:0.3;">📦</span>
+        <div style="position:absolute;top:8px;right:8px;background:var(--brass);color:#241a06;padding:3px 8px;border-radius:3px;font-size:10px;font-weight:700;">${escapeHtml(m.type)}</div>
+      </div>`;
+  
+  card.innerHTML = `
+    ${imgH}
+    <div class="color-fields">
+      <input type="text" value="${escapeAttr(m.name)}" placeholder="اسم الخامة" style="font-size:15px;font-weight:600;margin-bottom:8px;">
+      <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;">
+        <span class="color-hex mono" style="padding:4px 8px;background:var(--paper);border-radius:4px;font-size:11px;">🏠 ${rn}</span>
+        ${m.code?`<span class="color-hex mono" style="padding:4px 8px;background:var(--paper);border-radius:4px;font-size:11px;">${escapeHtml(m.code)}</span>`:''}
+      </div>
+      <textarea placeholder="ملاحظات...">${escapeHtml(m.note)}</textarea>
+    </div>
+    <button class="delete-btn" onclick="deleteMaterial(${i})">حذف هذه الخامة</button>`;
+  
+  if(m.image){
+    const ip = card.querySelector('.mat-image-preview');
+    const ie = ip.querySelector('img');
+    const ov = ip.querySelector('div');
+    const ic = ov.querySelector('span');
+    
+    ip.addEventListener('mouseenter',()=>{ie.style.transform='scale(1.08)';ov.style.background='rgba(0,0,0,0.3)';ic.style.opacity='1';});
+    ip.addEventListener('mouseleave',()=>{ie.style.transform='scale(1)';ov.style.background='rgba(0,0,0,0)';ic.style.opacity='0';});
+    ip.addEventListener('click',()=>openLightbox([{dataUrl:m.image,label:m.name}],0));
+  }
+  
+  card.querySelector('input[type=text]').oninput = e=>{m.name=e.target.value;saveToLocalStorage();};
+  card.querySelector('textarea').oninput = e=>{m.note=e.target.value;saveToLocalStorage();};
+  return card;
+}
+
+function deleteMaterial(i){
+  if(window.confirm('حذف هذه الخامة؟')){
+    state.materials.splice(i,1);
+    renderAll();
+    saveToLocalStorage();
+    showToast('تم الحذف','info');
+  }
+}
+
+/* --------------------------------------------------------------------------
+   17. صفحة التوقيع
+   -------------------------------------------------------------------------- */
+function renderSignatureSheet(){
+  const body = document.createElement('div');
+  
+  const t1 = document.createElement('h3');
+  t1.className = 'section-label';
+  t1.textContent = 'ملخص المرجع';
+  body.appendChild(t1);
+  
+  const summary = document.createElement('div');
+  summary.className = 'summary-grid';
+  const totalImgs = state.rooms.reduce((s,r)=>s+r.images.length,0);
+  
+  [['عدد الغرف',state.rooms.length],['إجمالي الصور',totalImgs],['عدد الألوان',state.colors.length],['عدد الخامات',state.materials.length]].forEach(([l,n])=>{
+    const c = document.createElement('div');
+    c.className = 'summary-card';
+    c.innerHTML = `<div class="n mono">${n}</div><div class="l">${l}</div>`;
+    summary.appendChild(c);
+  });
+  body.appendChild(summary);
+  
+  const t2 = document.createElement('h3');
+  t2.className = 'section-label';
+  t2.textContent = 'اعتماد العميل';
+  body.appendChild(t2);
+  
+  if(state.signature.approved){
+    const stamp = document.createElement('div');
+    stamp.className = 'stamp';
+    stamp.innerHTML = `✅ تم الاعتماد من <strong>${escapeHtml(state.signature.name||'العميل')}</strong> بتاريخ ${state.signature.approvedAt}`;
+    body.appendChild(stamp);
+    
+    if(state.signature.dataUrl){
+      const img = document.createElement('img');
+      img.src = state.signature.dataUrl;
+      img.style.cssText = 'max-width:320px;margin-top:14px;border:1px solid var(--paper-line);';
+      body.appendChild(img);
+    }
+    
+    const reopen = document.createElement('button');
+    reopen.className = 'btn btn-outline no-print';
+    reopen.style.marginTop = '14px';
+    reopen.textContent = 'تعديل التوقيع';
+    reopen.onclick = ()=>{state.signature.approved=false;renderAll();saveToLocalStorage();};
+    body.appendChild(reopen);
+  } else {
+    const hint = document.createElement('p');
+    hint.className = 'top-hint';
+    hint.textContent = 'من فضلك اطلب من العميل مراجعة الصور والألوان، ثم التوقيع هنا.';
+    body.appendChild(hint);
+    
+    const cw = document.createElement('div');
+    const cl = document.createElement('label');
+    cl.className = 'field-label';
+    cl.textContent = 'توقيع العميل';
+    cw.appendChild(cl);
+    
+    const canvas = document.createElement('canvas');
+    canvas.id = 'sigPad';
+    canvas.width = 520;
+    canvas.height = 180;
+    cw.appendChild(canvas);
+    
+    const sr = document.createElement('div');
+    sr.className = 'sig-row no-print';
+    sr.innerHTML = '<button class="btn btn-outline" id="clearSig">مسح التوقيع</button>';
+    cw.appendChild(sr);
+    body.appendChild(cw);
+    
+    const fr = document.createElement('div');
+    fr.className = 'field-row';
+    fr.style.marginTop = '16px';
+    fr.innerHTML = '<div class="field"><label class="field-label">اسم العميل</label><input type="text" id="sigName" placeholder="الاسم بالكامل"></div><div class="field"><label class="field-label">التاريخ</label><input type="date" id="sigDate"></div>';
+    body.appendChild(fr);
+    
+    fr.querySelector('#sigName').value = state.signature.name;
+    fr.querySelector('#sigDate').value = state.signature.date;
+    fr.querySelector('#sigName').oninput = e=>state.signature.name=e.target.value;
+    fr.querySelector('#sigDate').oninput = e=>state.signature.date=e.target.value;
+    
+    const ab = document.createElement('div');
+    ab.className = 'approve-box';
+    ab.innerHTML = '<input type="checkbox" id="agreeChk" style="margin-top:3px;"><label for="agreeChk" style="font-size:13.5px;color:var(--ink-soft);">أقرّ بأنني راجعت جميع الصور والألوان وأوافق على اعتمادها.</label>';
+    body.appendChild(ab);
+    
+    const cb = document.createElement('button');
+    cb.className = 'btn btn-primary no-print';
+    cb.style.marginTop = '14px';
+    cb.textContent = '✔ تأكيد الاعتماد والتوقيع';
+    cb.onclick = ()=>{
+      if(!body.querySelector('#agreeChk').checked){showToast('وافق على الإقرار','error');return;}
+      if(!body.querySelector('#sigName').value.trim()){showToast('اكتب اسم العميل','error');return;}
+      if(isCanvasBlank(canvas)){showToast('وقّع في المكان المخصص','error');return;}
+      state.signature.name = body.querySelector('#sigName').value.trim();
+      state.signature.date = body.querySelector('#sigDate').value||state.signature.date;
+      state.signature.dataUrl = canvas.toDataURL('image/png');
+      state.signature.approved = true;
+      state.signature.approvedAt = new Date().toLocaleDateString('ar-EG');
+      renderAll();
+      saveToLocalStorage();
+      showToast('تم الاعتماد بنجاح','success');
+    };
+    body.appendChild(cb);
+    requestAnimationFrame(()=>setupSignaturePad(canvas, sr.querySelector('#clearSig')));
+  }
+  
+  return sheetShell('A-999','اعتماد التصميم','صفحة التوقيع النهائي',body);
+}
+
+function isCanvasBlank(c){
+  const d = c.getContext('2d').getImageData(0,0,c.width,c.height).data;
+  for(let i=3;i<d.length;i+=4) if(d[i]!==0) return false;
+  return true;
+}
+
+function setupSignaturePad(canvas, clearBtn){
+  const ctx = canvas.getContext('2d');
+  ctx.lineWidth = 2.2;
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = '#1c2530';
+  let drawing = false, last = null;
+  
+  function pos(e){
+    const r = canvas.getBoundingClientRect();
+    const p = e.touches ? e.touches[0] : e;
+    return {x:(p.clientX-r.left)*(canvas.width/r.width), y:(p.clientY-r.top)*(canvas.height/r.height)};
+  }
+  function start(e){e.preventDefault();drawing=true;last=pos(e);}
+  function move(e){if(!drawing)return;e.preventDefault();const p=pos(e);ctx.beginPath();ctx.moveTo(last.x,last.y);ctx.lineTo(p.x,p.y);ctx.stroke();last=p;}
+  function end(){drawing=false;}
+  
+  canvas.addEventListener('mousedown',start);
+  canvas.addEventListener('mousemove',move);
+  window.addEventListener('mouseup',end);
+  canvas.addEventListener('touchstart',start,{passive:false});
+  canvas.addEventListener('touchmove',move,{passive:false});
+  canvas.addEventListener('touchend',end);
+  
+  if(clearBtn) clearBtn.onclick = ()=>ctx.clearRect(0,0,canvas.width,canvas.height);
+}
+
+/* --------------------------------------------------------------------------
+   18. حفظ / تحميل / تصدير
+   -------------------------------------------------------------------------- */
+document.getElementById('addRoomBtn').onclick = ()=>{
+  const name = prompt('اسم الغرفة الجديدة:','غرفة إضافية');
+  if(name && name.trim()){
+    const room = mkRoom(name.trim());
+    state.rooms.push(room);
+    currentTab = room.id;
+    renderAll();
+    saveToLocalStorage();
+    showToast('تمت الإضافة','success');
+  }
+};
+
+function downloadBlob(blob, filename){
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.rel = 'noopener';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url),60000);
+}
+
+function projectFileBaseName(){
+  return (state.project.name||'مشروع').replace(/[^\w\u0600-\u06FF\- ]/g,'').trim()||'مشروع';
+}
+
+document.getElementById('saveProjectBtn').onclick = ()=>{
+  downloadBlob(new Blob([JSON.stringify(state,null,2)],{type:'application/json'}), projectFileBaseName()+' - دفتر المرجع.json');
+  showToast('تم حفظ نسخة JSON','success');
+};
+
+// زر تصدير HTML
+document.addEventListener('DOMContentLoaded',()=>{
+  const btn = document.createElement('button');
+  btn.className = 'ghost-btn';
+  btn.textContent = '🌐 تصدير كـ HTML مستقل';
+  btn.onclick = exportAsStandaloneHTML;
+  const sf = document.querySelector('.sidebar-footer');
+  if(sf) sf.insertBefore(btn, sf.firstChild);
+});
+
+/* ==========================================================================
+   19. تصدير HTML احترافي مع علامة مائية مزغرفة ومحسّنة (النسخة النهائية)
+   ----------------------------------------------------------------------
+   طريقة الاستخدام:
+   استبدل دالة exportAsStandaloneHTML القديمة بالكامل بهذا الكود.
+   ========================================================================== */
+
+function exportAsStandaloneHTML(){
+  showLoading('جاري إنشاء ملف HTML الاحترافي...', 'تجميع البيانات وتنسيق الصفحات...');
+  try{
+    const projectName = state.project.name || 'مشروع بدون اسم';
+    const totalImgs = state.rooms.reduce((s,r)=>s+r.images.length,0);
+    const genDate = new Date().toLocaleDateString('ar-EG', { year:'numeric', month:'long', day:'numeric' });
+
+    // ---- بناء علامة مائية متكررة (Tiled SVG Watermark) مزغرفة ----
+    function buildWatermarkDataURI(){
+      // تم إزالة اسم المشروع، والاعتماد على "شطّب" فقط بحجم أكبر وشفافية أنيقة
+      const tile = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="600" height="600" viewBox="0 0 600 600">
+          <text x="20" y="200" font-family="Tajawal, Arial, sans-serif" font-size="80" font-weight="900"
+                fill="rgba(184,134,62,0.09)" transform="rotate(-30 300 300)" letter-spacing="4">شطّب</text>
+          <text x="20" y="400" font-family="Tajawal, Arial, sans-serif" font-size="80" font-weight="900"
+                fill="rgba(184,134,62,0.09)" transform="rotate(-30 300 300)" letter-spacing="4">شطّب</text>
+          <text x="20" y="600" font-family="Tajawal, Arial, sans-serif" font-size="80" font-weight="900"
+                fill="rgba(184,134,62,0.09)" transform="rotate(-30 300 300)" letter-spacing="4">شطّب</text>
+        </svg>`;
+      return 'data:image/svg+xml;utf8,' + encodeURIComponent(tile);
+    }
+    const watermarkURI = buildWatermarkDataURI();
+
+    // ---- روابط التنقل السريع (Table of Contents) ----
+    const tocLinks = [
+      {href:'#project-info', label:'بيانات المشروع', tag:'INFO'},
+      ...state.rooms.map((r,idx)=>({href:'#room-'+idx, label:r.name, tag:'A-'+(101+idx)})),
+      ...(state.colors.length ? [{href:'#colors-sec', label:'الألوان والدهانات', tag:'A-900'}] : []),
+      ...(state.materials.length ? [{href:'#materials-sec', label:'المواد والخامات', tag:'A-950'}] : []),
+      ...(state.signature.approved ? [{href:'#signature-sec', label:'اعتماد التصميم', tag:'A-999'}] : [])
+    ];
+
+    const h = `<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>${escapeHtml(projectName)} — شطّب</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#1c2530; --ink-soft:#5a6675;
+  --brass:#b8863e; --brass-dark:#8a6428; --brass-glow:rgba(184,134,62,.25);
+  --paper:#fffdf8; --paper-alt:#f7f4ed; --paper-line:#e3dcc9;
+  --green:#6f7a5e; --radius:12px;
+  --shadow-sm:0 2px 4px rgba(28,37,48,.06);
+  --shadow-md:0 8px 24px rgba(28,37,48,.1);
+  --shadow-lg:0 20px 50px rgba(28,37,48,.15);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{
+  font-family:'Tajawal','Segoe UI',Tahoma,sans-serif;
+  background:
+    radial-gradient(circle at 10% 0%, rgba(184,134,62,.08), transparent 50%),
+    radial-gradient(circle at 90% 20%, rgba(111,122,94,.06), transparent 50%),
+    #f3efe6;
+  color:var(--ink); line-height:1.7; min-height:100vh; position:relative;
+  -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;
+}
+.watermark-layer{
+  position:fixed; inset:0; z-index:0; pointer-events:none;
+  background-image:url("${watermarkURI}");
+  background-repeat:repeat; background-size:600px 600px;
+}
+.wrap{position:relative; z-index:1; max-width:1080px; margin:0 auto; padding:32px 24px 80px;}
+
+/* ---------- الغلاف ---------- */
+.cover{
+  background:linear-gradient(160deg,#1b2a41 0%, #253552 50%, #1b2a41 100%);
+  color:#f4ecd8; border-radius:16px; padding:50px 40px;
+  box-shadow:var(--shadow-lg); position:relative; overflow:hidden;
+  border:1px solid rgba(184,134,62,.3);
+}
+.cover::before, .cover::after{
+  content:''; position:absolute; width:300px; height:300px; border-radius:50%;
+  background:radial-gradient(circle, var(--brass-glow), transparent 70%);
+}
+.cover::before{ top:-100px; left:-100px; }
+.cover::after{ bottom:-120px; right:-80px; }
+.cover-badge{
+  display:inline-flex; align-items:center; gap:8px;
+  background:rgba(184,134,62,.15); border:1px solid var(--brass);
+  color:#e9d19f; font-size:12px; font-weight:700; letter-spacing:.5px;
+  padding:6px 14px; border-radius:30px; position:relative; z-index:2; text-transform:uppercase;
+}
+.cover h1{
+  font-size:clamp(30px,5vw,46px); font-weight:900; margin:20px 0 8px;
+  position:relative; z-index:2; letter-spacing:-0.5px; line-height:1.2;
+}
+.cover .sub{ color:#c9b98a; font-size:15px; position:relative; z-index:2; }
+.cover-meta{
+  display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+  gap:16px; margin-top:36px; position:relative; z-index:2;
+}
+.cover-meta .item{
+  background:rgba(255,255,255,.05); border:1px solid rgba(233,209,159,.2);
+  border-radius:10px; padding:16px; backdrop-filter:blur(4px);
+}
+.cover-meta .item .l{ font-size:11px; color:#c9b98a; margin-bottom:6px; font-weight:500; }
+.cover-meta .item .v{ font-size:18px; font-weight:800; color:#ffffff; }
+
+/* ---------- شريط التنقل السريع ---------- */
+.toc{
+  display:flex; flex-wrap:wrap; gap:8px; margin:30px 0 10px;
+  padding:16px; background:rgba(255,253,248,0.9); border:1px solid var(--paper-line);
+  border-radius:var(--radius); box-shadow:var(--shadow-sm); backdrop-filter:blur(8px);
+  position:sticky; top:10px; z-index:100;
+}
+.toc a{
+  text-decoration:none; font-size:13px; font-weight:700; color:var(--ink-soft);
+  background:var(--paper); border:1px solid var(--paper-line);
+  padding:8px 14px; border-radius:20px; transition:all .25s ease;
+  display:inline-flex; align-items:center; gap:6px;
+}
+.toc a:hover{ background:var(--brass); color:#fff; border-color:var(--brass); transform:translateY(-2px); box-shadow:var(--shadow-sm); }
+.toc a .tag{ font-family:'JetBrains Mono',monospace; font-size:10px; opacity:.7; background:rgba(0,0,0,.05); padding:2px 6px; border-radius:4px; }
+
+/* ---------- الأقسام ---------- */
+.section-block{ margin-top:50px; scroll-margin-top:80px; }
+.section-head{
+  display:flex; align-items:center; gap:14px; margin-bottom:20px;
+  padding-bottom:12px; border-bottom:2px solid var(--paper-line);
+}
+.section-head .icon{
+  width:44px; height:44px; border-radius:12px; display:flex; align-items:center;
+  justify-content:center; font-size:22px; background:linear-gradient(145deg,var(--brass),var(--brass-dark));
+  color:#fff; box-shadow:var(--shadow-sm); flex-shrink:0;
+}
+.section-head h2{ font-size:22px; color:#1b2a41; font-weight:800; flex:1; }
+.section-head .count{
+  font-family:'JetBrains Mono',monospace; font-size:12px;
+  background:var(--paper-alt); border:1px solid var(--paper-line); padding:4px 12px;
+  border-radius:20px; color:var(--ink-soft); font-weight:600;
+}
+
+/* ---------- بطاقة معلومات المشروع ---------- */
+.info-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;}
+.info-card{background:var(--paper);padding:18px;border-radius:var(--radius);border:1px solid var(--paper-line);box-shadow:var(--shadow-sm);}
+.info-card .label{font-size:12px;color:var(--ink-soft);margin-bottom:6px;font-weight:600;}
+.info-card .value{font-size:18px;font-weight:800;color:#1b2a41;}
+
+/* ---------- الغرف ---------- */
+.room{
+  background:var(--paper); padding:28px; border-radius:16px; margin:24px 0;
+  border:1px solid var(--paper-line); box-shadow:var(--shadow-sm);
+}
+.room-head{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:18px; padding-bottom:14px; border-bottom:2px solid var(--paper-line);}
+.room-head h3{font-size:20px;color:#1b2a41;font-weight:800;}
+.room-tag{font-family:'JetBrains Mono',monospace;font-size:11px;background:#1b2a41;color:#e9d19f;padding:4px 10px;border-radius:6px;font-weight:700;}
+.sub-label{font-size:13px;font-weight:700;color:var(--brass-dark);margin:20px 0 12px;text-transform:uppercase;letter-spacing:.5px;}
+
+.images-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:18px;margin:14px 0;}
+.image-card{background:#fff;border:1px solid var(--paper-line);border-radius:12px;overflow:hidden;cursor:pointer;transition:all .3s cubic-bezier(.4,0,.2,1);}
+.image-card:hover{transform:translateY(-6px);box-shadow:var(--shadow-md);border-color:var(--brass);}
+.image-card .img-wrapper{position:relative;overflow:hidden;height:200px;background:#efe9db;}
+.image-card img{width:100%;height:100%;object-fit:cover;transition:transform .6s cubic-bezier(.4,0,.2,1);}
+.image-card:hover img{transform:scale(1.08);}
+.image-card .overlay{position:absolute;inset:0;background:rgba(20,20,20,0);display:flex;align-items:center;justify-content:center;transition:all .3s;}
+.image-card:hover .overlay{background:rgba(15,15,15,.4);}
+.image-card .overlay-icon{color:#fff;font-size:32px;opacity:0;transition:opacity .3s;transform:scale(0.8);}
+.image-card:hover .overlay-icon{opacity:1;transform:scale(1);}
+.image-card .caption{padding:12px 14px;font-size:13px;color:var(--ink-soft);border-top:1px solid var(--paper-line);display:flex;justify-content:space-between;font-weight:600;}
+.image-badge{position:absolute;top:10px;right:10px;background:var(--brass);color:#241a06;padding:4px 10px;border-radius:6px;font-size:10.5px;font-weight:800;z-index:2;box-shadow:var(--shadow-sm);}
+.image-badge.alt{background:#e9e3d3;color:var(--ink-soft);}
+.notes{background:var(--paper-alt);padding:18px 20px;border-radius:10px;margin:16px 0;white-space:pre-wrap;border-right:4px solid var(--brass);font-size:14.5px;color:var(--ink);line-height:1.8;}
+.empty-note{color:#a89c82;font-size:14px;font-style:italic;padding:14px 0;}
+
+/* ---------- الألوان ---------- */
+.colors-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:18px;margin:16px 0;}
+.color-card{background:#fff;border:1px solid var(--paper-line);border-radius:12px;overflow:hidden;box-shadow:var(--shadow-sm);transition:all .25s;}
+.color-card:hover{box-shadow:var(--shadow-md);transform:translateY(-4px);}
+.color-swatch{height:120px;position:relative;}
+.color-swatch .hexlabel{position:absolute;bottom:10px;left:10px;background:rgba(255,255,255,.95);padding:4px 10px;border-radius:6px;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:#1c2530;box-shadow:var(--shadow-sm);}
+.color-info{padding:14px 16px;}
+.color-info .name{font-weight:800;margin-bottom:4px;font-size:15px;}
+.color-info .note{margin-top:8px;font-size:12.5px;color:var(--ink-soft);line-height:1.5;}
+
+/* ---------- الخامات ---------- */
+.materials-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:18px;margin:16px 0;}
+.material-card{background:#fff;border:1px solid var(--paper-line);border-radius:12px;overflow:hidden;box-shadow:var(--shadow-sm);transition:all .25s;}
+.material-card:hover{box-shadow:var(--shadow-md);transform:translateY(-4px);}
+.material-card img{width:100%;height:160px;object-fit:cover;}
+.material-noimg{height:160px;background:linear-gradient(135deg,#f1ede3,#e3dcc9);display:flex;align-items:center;justify-content:center;font-size:48px;opacity:.3;}
+.material-info{padding:14px 16px;}
+.pill{display:inline-block;color:#fff;padding:4px 10px;border-radius:6px;font-size:10.5px;font-weight:800;margin-left:6px;margin-bottom:8px;}
+.pill.type{background:var(--brass);}
+.pill.room{background:var(--green);}
+.material-name{font-weight:800;margin:6px 0 4px;font-size:15px;}
+.material-code{font-family:'JetBrains Mono',monospace;color:var(--ink-soft);font-size:12px;}
+
+/* ---------- التوقيع ---------- */
+.signature-box{
+  background:linear-gradient(155deg,#eef3ec,#e4ecdf); border:1px solid #bcd4c1;
+  padding:30px; border-radius:16px; margin:18px 0; position:relative; overflow:hidden;
+}
+.signature-box::before{content:'✔';position:absolute;font-size:140px;color:rgba(111,122,94,.06);top:-20px;left:10px;pointer-events:none;}
+.signature-box p{position:relative;z-index:1;margin-bottom:8px;font-size:15px;}
+.signature-box img{max-width:300px;margin-top:16px;border:1px solid #bcd4c1;border-radius:8px;background:#fff;position:relative;z-index:1;box-shadow:var(--shadow-sm);}
+
+/* ---------- الفوتر ---------- */
+.footer{text-align:center;margin-top:60px;padding-top:30px;border-top:2px solid var(--paper-line);color:#8a8072;font-size:13px;}
+.footer .brand{font-weight:900;color:var(--brass-dark);font-size:16px;margin-bottom:4px;}
+
+/* ---------- صندوق العرض (Lightbox) ---------- */
+.lightbox{display:none;position:fixed;inset:0;background:rgba(8,10,14,.96);z-index:9700;align-items:center;justify-content:center;backdrop-filter:blur(4px);}
+.lightbox.show{display:flex;animation:fadeIn .2s ease;}
+.lightbox-stage{width:min(92vw,1100px);height:min(84vh,800px);display:flex;align-items:center;justify-content:center;overflow:hidden;}
+.lightbox-stage img{max-width:100%;max-height:100%;object-fit:contain;cursor:zoom-in;user-select:none;transition:transform .2s ease;box-shadow:0 20px 60px rgba(0,0,0,.5);}
+.lightbox-close{position:absolute;top:20px;left:20px;width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;font-size:20px;cursor:pointer;transition:all .2s;}
+.lightbox-close:hover{background:rgba(255,255,255,.25);transform:rotate(90deg);}
+.lightbox-counter{position:absolute;top:24px;right:24px;color:#e4c893;font-size:13px;background:rgba(255,255,255,.08);padding:6px 14px;border-radius:20px;font-family:'JetBrains Mono',monospace;}
+.lightbox-nav{position:absolute;top:50%;transform:translateY(-50%);width:50px;height:50px;border-radius:50%;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:#fff;font-size:24px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;}
+.lightbox-nav:hover{background:var(--brass);color:#241a06;border-color:var(--brass);}
+.lightbox-prev{right:20px;}
+.lightbox-next{left:20px;}
+
+/* ---------- زر العودة للأعلى ---------- */
+.back-to-top {
+  position: fixed; bottom: 30px; left: 30px; width: 48px; height: 48px;
+  background: var(--brass); color: #fff; border: none; border-radius: 50%;
+  font-size: 20px; cursor: pointer; box-shadow: var(--shadow-md);
+  opacity: 0; transform: translateY(20px); transition: all 0.3s; z-index: 900;
+}
+.back-to-top.show { opacity: 1; transform: translateY(0); }
+.back-to-top:hover { background: var(--brass-dark); transform: translateY(-3px); }
+
+@keyframes fadeIn { from{opacity:0;} to{opacity:1;} }
+
+@media print{
+  .watermark-layer{ opacity:.5; }
+  .toc, .lightbox, .back-to-top{ display:none !important; }
+  .wrap{ padding: 0; max-width: 100%; }
+  .room, .info-card, .color-card, .material-card, .signature-box{ box-shadow:none; break-inside:avoid; page-break-inside: avoid; border: 1px solid #ddd; }
+  body{ background:#fff; }
+  .cover{ -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+@media (max-width:640px){
+  .cover{ padding:30px 20px; }
+  .wrap{ padding:16px 12px 60px; }
+  .toc{ position: relative; top: 0; }
+  .images-grid{ grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<div class="watermark-layer"></div>
+<div class="wrap">
+
+  <div class="cover">
+    <span class="cover-badge">📐 دفتر مرجع التصميم — شطّب</span>
+    <h1>${escapeHtml(projectName)}</h1>
+    <div class="sub">تم إعداد هذا الملف بتاريخ ${genDate}</div>
+    <div class="cover-meta">
+      <div class="item"><div class="l">العميل</div><div class="v">${escapeHtml(state.project.client||'—')}</div></div>
+      <div class="item"><div class="l">المهندس / المصمم</div><div class="v">${escapeHtml(state.project.engineer||'—')}</div></div>
+      <div class="item"><div class="l">عدد الغرف</div><div class="v">${state.rooms.length}</div></div>
+      <div class="item"><div class="l">إجمالي الصور</div><div class="v">${totalImgs}</div></div>
+    </div>
+  </div>
+
+  ${tocLinks.length ? `<div class="toc">${tocLinks.map(l=>`<a href="${l.href}"><span class="tag">${l.tag}</span>${escapeHtml(l.label)}</a>`).join('')}</div>` : ''}
+
+  <div class="section-block" id="project-info">
+    <div class="section-head"><div class="icon">📋</div><h2>بيانات المشروع</h2></div>
+    <div class="info-grid">
+      <div class="info-card"><div class="label">اسم المشروع</div><div class="value">${escapeHtml(projectName)}</div></div>
+      <div class="info-card"><div class="label">العميل</div><div class="value">${escapeHtml(state.project.client||'-')}</div></div>
+      <div class="info-card"><div class="label">المصمم</div><div class="value">${escapeHtml(state.project.engineer||'-')}</div></div>
+      <div class="info-card"><div class="label">التاريخ</div><div class="value">${state.project.date||'-'}</div></div>
+    </div>
+  </div>
+
+  <div class="section-block">
+    <div class="section-head"><div class="icon">🏠</div><h2>الغرف</h2><span class="count">${state.rooms.length} غرفة</span></div>
+    ${state.rooms.map((room,idx)=>`
+      <div class="room" id="room-${idx}">
+        <div class="room-head"><h3>${escapeHtml(room.name)}</h3><span class="room-tag">A-${101+idx}</span></div>
+        ${room.images.length ? `
+          <div class="sub-label">الصور المرجعية (${room.images.length})</div>
+          <div class="images-grid" data-room="${idx}">
+            ${room.images.map((img,i)=>`
+              <div class="image-card" onclick="openLB(${idx},${i})">
+                <div class="img-wrapper">
+                  <img src="${img.dataUrl}" loading="lazy" alt="صورة ${i+1}">
+                  <div class="overlay"><span class="overlay-icon">🔍</span></div>
+                  <span class="image-badge ${img.label==='أساسي'?'':'alt'}">${img.label==='أساسي'?'⭐ أساسي':'بديل'}</span>
+                </div>
+                <div class="caption"><strong>صورة ${i+1}</strong></div>
+              </div>`).join('')}
+          </div>` : `<div class="empty-note">لا توجد صور مرفوعة لهذه الغرفة بعد.</div>`}
+        ${room.notes ? `<div class="sub-label">ملاحظات</div><div class="notes">${escapeHtml(room.notes)}</div>` : ''}
+      </div>`).join('')}
+  </div>
+
+  ${state.colors.length ? `
+  <div class="section-block" id="colors-sec">
+    <div class="section-head"><div class="icon">🎨</div><h2>الألوان والدهانات</h2><span class="count">${state.colors.length} لون</span></div>
+    <div class="colors-grid">
+      ${state.colors.map(c=>`
+        <div class="color-card">
+          <div class="color-swatch" style="background:${c.hex}"><span class="hexlabel">${c.hex}</span></div>
+          <div class="color-info">
+            <div class="name">${escapeHtml(c.name)}</div>
+            ${c.note ? `<div class="note">${escapeHtml(c.note)}</div>` : ''}
+          </div>
+        </div>`).join('')}
+    </div>
+  </div>` : ''}
+
+  ${state.materials.length ? `
+  <div class="section-block" id="materials-sec">
+    <div class="section-head"><div class="icon">📦</div><h2>المواد والخامات</h2><span class="count">${state.materials.length} خامة</span></div>
+    <div class="materials-grid">
+      ${state.materials.map(m=>{
+        const room = state.rooms.find(r=>r.id===m.roomId);
+        return `<div class="material-card">
+          ${m.image ? `<img src="${m.image}" loading="lazy" alt="${escapeHtml(m.name)}">` : `<div class="material-noimg">📦</div>`}
+          <div class="material-info">
+            <span class="pill type">${escapeHtml(m.type)}</span>${room?`<span class="pill room">${escapeHtml(room.name)}</span>`:''}
+            <div class="material-name">${escapeHtml(m.name)}</div>
+            ${m.code ? `<div class="material-code">${escapeHtml(m.code)}</div>` : ''}
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>` : ''}
+
+  ${state.signature.approved ? `
+  <div class="section-block" id="signature-sec">
+    <div class="section-head"><div class="icon">✅</div><h2>اعتماد العميل</h2></div>
+    <div class="signature-box">
+      <p><strong>تم الاعتماد من:</strong> ${escapeHtml(state.signature.name)}</p>
+      <p><strong>التاريخ:</strong> ${state.signature.approvedAt}</p>
+      ${state.signature.dataUrl ? `<img src="${state.signature.dataUrl}" alt="توقيع العميل">` : ''}
+    </div>
+  </div>` : ''}
+
+  <div class="footer">
+    <p class="brand">شطّب</p>
+    <p>دفتر مرجع التصميم — تم الإنشاء بتاريخ ${genDate}</p>
+  </div>
+</div>
+
+<button class="back-to-top" id="htmlBackToTop" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="العودة للأعلى">↑</button>
+
+<div class="lightbox" id="lb">
+  <button class="lightbox-close" onclick="closeLB()" aria-label="إغلاق">✕</button>
+  <div class="lightbox-counter" id="lbc">1/1</div>
+  <button class="lightbox-nav lightbox-prev" onclick="prevImg()" aria-label="السابق">‹</button>
+  <div class="lightbox-stage"><img id="lbi" alt="معاينة الصورة"></div>
+  <button class="lightbox-nav lightbox-next" onclick="nextImg()" aria-label="التالي">›</button>
+</div>
+
+<script>
+const R=${JSON.stringify(state.rooms.map(r=>r.images.map(i=>i.dataUrl)))};
+let ci=0,ii=0,lbScale=1;
+
+function openLB(r,i){
+  ci=r; ii=i; lbScale=1;
+  const img = document.getElementById('lbi');
+  img.src = R[r][i];
+  img.style.transform = 'scale(1)';
+  document.getElementById('lbc').textContent = (i+1) + ' / ' + R[r].length;
+  document.getElementById('lb').classList.add('show');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeLB(){
+  document.getElementById('lb').classList.remove('show');
+  document.body.style.overflow = '';
+}
+
+function nextImg(){
+  ii=(ii+1)%R[ci].length; lbScale=1;
+  document.getElementById('lbi').src=R[ci][ii];
+  document.getElementById('lbi').style.transform='scale(1)';
+  document.getElementById('lbc').textContent=(ii+1)+'/'+R[ci].length;
+}
+
+function prevImg(){
+  ii=(ii-1+R[ci].length)%R[ci].length; lbScale=1;
+  document.getElementById('lbi').src=R[ci][ii];
+  document.getElementById('lbi').style.transform='scale(1)';
+  document.getElementById('lbc').textContent=(ii+1)+'/'+R[ci].length;
+}
+
+document.getElementById('lb').addEventListener('click', function(e) {
+  if (e.target === this) closeLB();
+});
+
+document.getElementById('lbi').addEventListener('click', function(){
+  if(lbScale === 1){
+    lbScale = 2.2;
+    this.style.transform = 'scale(2.2)';
+  } else {
+    lbScale = 1;
+    this.style.transform = 'scale(1)';
+  }
+});
+
+window.addEventListener('scroll', function() {
+  const btn = document.getElementById('htmlBackToTop');
+  if (window.scrollY > 400) btn.classList.add('show');
+  else btn.classList.remove('show');
+});
+
+document.addEventListener('keydown',e=>{
+  if(!document.getElementById('lb').classList.contains('show'))return;
+  if(e.key==='Escape')closeLB();
+  else if(e.key==='ArrowRight')prevImg();
+  else if(e.key==='ArrowLeft')nextImg();
+});
+</script>
+</body>
+</html>`;
+
+    downloadBlob(new Blob([h],{type:'text/html;charset=utf-8'}), projectFileBaseName()+' - شطّب.html');
+    hideLoading();
+    showToast('تم تصدير HTML بتصميم احترافي فاخر','success');
+  }catch(err){
+    hideLoading();
+    console.error(err);
+    showToast('خطأ: '+err.message,'error');
+  }
+}
+
+/* --------------------------------------------------------------------------
+   20. شاشة التحميل
+   -------------------------------------------------------------------------- */
+function showLoading(t,p){
+  const o = document.getElementById('loadingOverlay');
+  if(!o) return;
+  document.getElementById('loadingText').textContent = t||'جاري الإنشاء...';
+  document.getElementById('loadingProgress').textContent = p||'';
+  o.classList.remove('hidden');
+}
+
+function updateLoading(t,p){
+  const te = document.getElementById('loadingText');
+  const pe = document.getElementById('loadingProgress');
+  if(t&&te) te.textContent = t;
+  if(p&&pe) pe.textContent = p;
+}
+
+function hideLoading(){
+  const o = document.getElementById('loadingOverlay');
+  if(o) o.classList.add('hidden');
+}
+
+/* --------------------------------------------------------------------------
+   21. دوال مساعدة
+   -------------------------------------------------------------------------- */
+function escapeHtml(s){
+  return (s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function escapeAttr(s){
+  return escapeHtml(s).replace(/"/g, '&quot;');
+}
+
+/* --------------------------------------------------------------------------
+   22. القائمة المنسدلة (Drawer)
+   -------------------------------------------------------------------------- */
+const sidebarEl = document.getElementById('sidebar');
+const drawerOverlay = document.getElementById('drawerOverlay');
+const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+
+function openDrawer(){
+  sidebarEl.classList.add('open');
+  drawerOverlay.classList.add('show');
+  mobileMenuBtn.classList.add('open');
+  mobileMenuBtn.setAttribute('aria-expanded','true');
+}
+
+function closeDrawer(){
+  sidebarEl.classList.remove('open');
+  drawerOverlay.classList.remove('show');
+  mobileMenuBtn.classList.remove('open');
+  mobileMenuBtn.setAttribute('aria-expanded','false');
+}
+
+mobileMenuBtn.onclick = ()=>sidebarEl.classList.contains('open')?closeDrawer():openDrawer();
+drawerOverlay.onclick = closeDrawer;
+document.addEventListener('keydown', e=>{if(e.key==='Escape')closeDrawer();});
+
+/* --------------------------------------------------------------------------
+   23. زر العودة للأعلى
+   -------------------------------------------------------------------------- */
+const backToTopBtn = document.getElementById('backToTop');
+window.addEventListener('scroll', ()=>backToTopBtn.classList.toggle('show', window.scrollY>320));
+backToTopBtn.onclick = ()=>window.scrollTo({top:0,behavior:'smooth'});
+
+/* --------------------------------------------------------------------------
+   24. تأثير النقر (Ripple)
+   -------------------------------------------------------------------------- */
+document.addEventListener('click', e=>{
+  const t = e.target.closest('.btn,.nav-item,.btn-icon,.ghost-btn');
+  if(!t) return;
+  const r = t.getBoundingClientRect();
+  const sz = Math.max(r.width, r.height);
+  const rp = document.createElement('span');
+  rp.className = 'ripple';
+  rp.style.cssText = `width:${sz}px;height:${sz}px;left:${e.clientX-r.left-sz/2}px;top:${e.clientY-r.top-sz/2}px;`;
+  t.appendChild(rp);
+  setTimeout(()=>rp.remove(),600);
+});
+
+/* --------------------------------------------------------------------------
+   25. الإشعارات (Toasts)
+   -------------------------------------------------------------------------- */
+function showToast(msg, type){
+  const stack = document.getElementById('toastStack');
+  const t = document.createElement('div');
+  t.className = 'toast' + (type?' toast-'+type:'');
+  const icon = type==='error'?'⚠':(type==='info'?'ℹ':'✓');
+  t.innerHTML = `<span class="toast-icon">${icon}</span><span>${escapeHtml(msg)}</span>`;
+  stack.appendChild(t);
+  setTimeout(()=>{t.classList.add('toast-out');setTimeout(()=>t.remove(),260);},3200);
+}
+
+/* --------------------------------------------------------------------------
+   26. نافذة التأكيد
+   -------------------------------------------------------------------------- */
+function showConfirm({title,message,confirmLabel,icon}){
+  return new Promise(resolve=>{
+    const ov = document.getElementById('confirmOverlay');
+    document.getElementById('confirmIcon').textContent = icon||'';
+    document.getElementById('confirmTitle').textContent = title||'هل أنت متأكد؟';
+    document.getElementById('confirmMsg').textContent = message||'';
+    const ok = document.getElementById('confirmOkBtn');
+    const cancel = document.getElementById('confirmCancelBtn');
+    ok.textContent = confirmLabel||'تأكيد';
+    ov.classList.add('show');
+    
+    function cleanup(r){
+      ov.classList.remove('show');
+      ok.onclick = null;
+      cancel.onclick = null;
+      ov.onclick = null;
+      document.removeEventListener('keydown', esc);
+      resolve(r);
+    }
+    function esc(e){if(e.key==='Escape')cleanup(false);}
+    
+    ok.onclick = ()=>cleanup(true);
+    cancel.onclick = ()=>cleanup(false);
+    ov.onclick = e=>{if(e.target===ov)cleanup(false);};
+    document.addEventListener('keydown', esc);
+    cancel.focus();
+  });
+}
+
+/* --------------------------------------------------------------------------
+   27. معرض الصور (Lightbox)
+   -------------------------------------------------------------------------- */
+const lightbox = document.getElementById('lightbox');
+const lightboxImg = document.getElementById('lightboxImg');
+let lbImages = [], lbIndex = 0, lbScale = 1, lbPan = {x:0,y:0}, lbDragging = false, lbDragStart = null;
+
+function openLightbox(images, index){
+  lbImages = images;
+  lbIndex = index;
+  lightbox.classList.add('show');
+  document.body.style.overflow = 'hidden';
+  renderLB();
+}
+
+function closeLB(){
+  lightbox.classList.remove('show');
+  document.body.style.overflow = '';
+}
+
+function renderLB(){
+  lbScale = 1;
+  lbPan = {x:0,y:0};
+  lightboxImg.style.transform = 'translate(0,0) scale(1)';
+  lightboxImg.classList.remove('zoomed');
+  lightboxImg.src = lbImages[lbIndex].dataUrl;
+  document.getElementById('lightboxCounter').textContent = (lbIndex+1)+' / '+lbImages.length;
+  document.getElementById('lightboxPrev').disabled = lbImages.length<=1;
+  document.getElementById('lightboxNext').disabled = lbImages.length<=1;
+}
+
+function lbNext(){
+  if(lbImages.length<2) return;
+  lbIndex = (lbIndex+1)%lbImages.length;
+  renderLB();
+}
+
+function lbPrev(){
+  if(lbImages.length<2) return;
+  lbIndex = (lbIndex-1+lbImages.length)%lbImages.length;
+  renderLB();
+}
+
+lightboxImg.addEventListener('click', ()=>{
+  if(lbScale===1){lbScale=2.2;}else{lbScale=1;lbPan={x:0,y:0};}
+  lightboxImg.style.transform = `translate(${lbPan.x}px,${lbPan.y}px) scale(${lbScale})`;
+  lightboxImg.classList.toggle('zoomed', lbScale>1);
+});
+
+lightboxImg.addEventListener('mousedown', e=>{
+  if(lbScale===1) return;
+  lbDragging = true;
+  lbDragStart = {x:e.clientX-lbPan.x, y:e.clientY-lbPan.y};
+});
+
+window.addEventListener('mousemove', e=>{
+  if(!lbDragging) return;
+  lbPan = {x:e.clientX-lbDragStart.x, y:e.clientY-lbDragStart.y};
+  lightboxImg.style.transform = `translate(${lbPan.x}px,${lbPan.y}px) scale(${lbScale})`;
+});
+
+window.addEventListener('mouseup', ()=>{lbDragging=false;});
+
+document.getElementById('lightboxClose').onclick = closeLB;
+document.getElementById('lightboxNext').onclick = lbNext;
+document.getElementById('lightboxPrev').onclick = lbPrev;
+lightbox.addEventListener('click', e=>{if(e.target===lightbox)closeLB();});
+document.addEventListener('keydown', e=>{
+  if(!lightbox.classList.contains('show')) return;
+  if(e.key==='Escape') closeLB();
+  else if(e.key==='ArrowRight') lbPrev();
+  else if(e.key==='ArrowLeft') lbNext();
+});
+
+/* --------------------------------------------------------------------------
+   28. بدء التطبيق
+   -------------------------------------------------------------------------- */
+renderAll();

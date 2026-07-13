@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>شطّب — دفتر مرجع التصميم</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Tajawal:wght@400;500;700;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  
+
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app">
+    <div class="mobile-topbar no-print">
+      <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="فتح القائمة" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+      <div class="mobile-topbar-title">
+        <span class="mobile-topbar-kicker brand-logo-mobile">شطّب</span>
+        <span id="mobileTopbarTab">بيانات المشروع</span>
+      </div>
+    </div>
+    <div class="drawer-overlay no-print" id="drawerOverlay"></div>
+    
+    <aside class="sidebar" id="sidebar">
+      <div class="theme-toggle-wrapper">
+        <span class="theme-toggle-label">الوضع</span>
+        <button class="theme-toggle" id="themeToggle" title="تبديل الوضع الليلي"></button>
+      </div>
+      
+      <div class="brand">
+        <h1 class="brand-logo">شطّب</h1>
+        <span class="brand-subtitle">دفتر مرجع التصميم</span>
+        <small id="projectSubtitle">بدون اسم مشروع بعد</small>
+      </div>
+
+      <div class="progress-container">
+        <div class="progress-label">
+          <span>تقدم المشروع</span>
+          <span id="progressPercent">0%</span>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill" id="progressFill" style="width:0%"></div>
+        </div>
+      </div>
+
+      <div class="nav-group-label">لوحة المشروع</div>
+      <div class="nav-scroll" id="navProject"></div>
+
+      <div class="nav-group-label">الغرف</div>
+      <div class="nav-scroll" id="navRooms"></div>
+      <button class="add-room-btn" id="addRoomBtn">+ إضافة غرفة أخرى</button>
+
+      <div class="nav-group-label">الإنهاء</div>
+      <div class="nav-scroll" id="navEnd"></div>
+
+      <div class="sidebar-footer no-print">
+        <button class="ghost-btn" id="saveProjectBtn">⭳ حفظ نسخة للتعديل (JSON)</button>
+        <button class="ghost-btn" id="loadProjectBtn">فتح نسخة محفوظة</button>
+    
+        <input type="file" id="loadInput" accept=".json,application/json">
+      </div>
+    </aside>
+
+    <main class="main" id="main">
+      <nav class="breadcrumb no-print" id="breadcrumb" aria-label="مسار التنقل"></nav>
+      <div id="mainContent"></div>
+    </main>
+  </div>
+
+  <button class="back-to-top no-print" id="backToTop" aria-label="العودة لأعلى الصفحة" title="العودة لأعلى الصفحة">↑</button>
+  <div class="toast-stack no-print" id="toastStack" aria-live="polite"></div>
+
+  <div class="confirm-overlay no-print" id="confirmOverlay">
+    <div class="confirm-box">
+      <div class="confirm-icon" id="confirmIcon"></div>
+      <div class="confirm-title" id="confirmTitle">هل أنت متأكد؟</div>
+      <div class="confirm-msg" id="confirmMsg"></div>
+      <div class="confirm-actions">
+        <button class="btn btn-outline" id="confirmCancelBtn">إلغاء</button>
+        <button class="btn" id="confirmOkBtn" style="background:var(--danger); color:#fff;">تأكيد</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="lightbox no-print" id="lightbox" role="dialog" aria-modal="true" aria-label="عارض الصور">
+    <button class="lightbox-close" id="lightboxClose" aria-label="إغلاق">✕</button>
+    <div class="lightbox-counter mono" id="lightboxCounter">1 / 1</div>
+    <button class="lightbox-nav lightbox-prev" id="lightboxPrev" aria-label="الصورة السابقة">‹</button>
+    <div class="lightbox-stage" id="lightboxStage">
+      <img id="lightboxImg" alt="صورة مكبرة" draggable="false">
+    </div>
+    <button class="lightbox-nav lightbox-next" id="lightboxNext" aria-label="الصورة التالية">›</button>
+    <div class="lightbox-hint mono">اسحب للتكبير أو استخدم الأسهم للتنقل — Esc للإغلاق</div>
+  </div>
+
+  <div class="autosave-indicator" id="autosaveIndicator">✓ تم الحفظ التلقائي</div>
+
+  <div class="loading-overlay hidden" id="loadingOverlay">
+    <div class="loading-spinner"></div>
+    <div id="loadingText">جاري إنشاء ملف PDF...</div>
+    <div class="loading-progress" id="loadingProgress"></div>
+  </div>
+
+  <div class="lib-status" id="libStatus">
+    <span class="status-icon"></span>
+    <span class="status-text"></span>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
