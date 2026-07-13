@@ -1026,10 +1026,12 @@ document.addEventListener('DOMContentLoaded',()=>{
 });
 
 /* ==========================================================================
-   19. تصدير HTML احترافي مع علامة مائية مزغرفة ومحسّنة (النسخة النهائية)
+   19. تصدير HTML احترافي مع علامة مائية مزغرفة + فتح صور الخامات
    ----------------------------------------------------------------------
-   طريقة الاستخدام:
-   استبدل دالة exportAsStandaloneHTML القديمة بالكامل بهذا الكود.
+   التعديلات:
+   - علامة مائية "شطّب" فقط بحجم أكبر وشفافية أنيقة
+   - فتح صور الخامات في Lightbox مثل صور الغرف
+   - إخفاء العداد عند فتح صورة خامة مفردة
    ========================================================================== */
 
 function exportAsStandaloneHTML(){
@@ -1041,7 +1043,6 @@ function exportAsStandaloneHTML(){
 
     // ---- بناء علامة مائية متكررة (Tiled SVG Watermark) مزغرفة ----
     function buildWatermarkDataURI(){
-      // تم إزالة اسم المشروع، والاعتماد على "شطّب" فقط بحجم أكبر وشفافية أنيقة
       const tile = `
         <svg xmlns="http://www.w3.org/2000/svg" width="600" height="600" viewBox="0 0 600 600">
           <text x="20" y="200" font-family="Tajawal, Arial, sans-serif" font-size="80" font-weight="900"
@@ -1216,7 +1217,8 @@ body{
 .materials-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:18px;margin:16px 0;}
 .material-card{background:#fff;border:1px solid var(--paper-line);border-radius:12px;overflow:hidden;box-shadow:var(--shadow-sm);transition:all .25s;}
 .material-card:hover{box-shadow:var(--shadow-md);transform:translateY(-4px);}
-.material-card img{width:100%;height:160px;object-fit:cover;}
+.material-card img{width:100%;height:160px;object-fit:cover;cursor:zoom-in;transition:transform .4s;}
+.material-card:hover img{transform:scale(1.05);}
 .material-noimg{height:160px;background:linear-gradient(135deg,#f1ede3,#e3dcc9);display:flex;align-items:center;justify-content:center;font-size:48px;opacity:.3;}
 .material-info{padding:14px 16px;}
 .pill{display:inline-block;color:#fff;padding:4px 10px;border-radius:6px;font-size:10.5px;font-weight:800;margin-left:6px;margin-bottom:8px;}
@@ -1351,7 +1353,7 @@ body{
       ${state.materials.map(m=>{
         const room = state.rooms.find(r=>r.id===m.roomId);
         return `<div class="material-card">
-          ${m.image ? `<img src="${m.image}" loading="lazy" alt="${escapeHtml(m.name)}">` : `<div class="material-noimg">📦</div>`}
+          ${m.image ? `<img src="${m.image}" loading="lazy" alt="${escapeHtml(m.name)}" style="cursor:zoom-in;" onclick="openMaterialLB('${m.image.replace(/'/g, "\\'")}')">` : `<div class="material-noimg">📦</div>`}
           <div class="material-info">
             <span class="pill type">${escapeHtml(m.type)}</span>${room?`<span class="pill room">${escapeHtml(room.name)}</span>`:''}
             <div class="material-name">${escapeHtml(m.name)}</div>
@@ -1382,7 +1384,7 @@ body{
 
 <div class="lightbox" id="lb">
   <button class="lightbox-close" onclick="closeLB()" aria-label="إغلاق">✕</button>
-  <div class="lightbox-counter" id="lbc">1/1</div>
+  <div class="lightbox-counter" id="lbc" style="display:none;">1/1</div>
   <button class="lightbox-nav lightbox-prev" onclick="prevImg()" aria-label="السابق">‹</button>
   <div class="lightbox-stage"><img id="lbi" alt="معاينة الصورة"></div>
   <button class="lightbox-nav lightbox-next" onclick="nextImg()" aria-label="التالي">›</button>
@@ -1390,14 +1392,27 @@ body{
 
 <script>
 const R=${JSON.stringify(state.rooms.map(r=>r.images.map(i=>i.dataUrl)))};
-let ci=0,ii=0,lbScale=1;
+let ci=0, ii=0, lbScale=1;
 
+// دالة فتح صور الغرف (تظهر العداد)
 function openLB(r,i){
   ci=r; ii=i; lbScale=1;
   const img = document.getElementById('lbi');
   img.src = R[r][i];
   img.style.transform = 'scale(1)';
+  document.getElementById('lbc').style.display = 'block';
   document.getElementById('lbc').textContent = (i+1) + ' / ' + R[r].length;
+  document.getElementById('lb').classList.add('show');
+  document.body.style.overflow = 'hidden';
+}
+
+// ✅ دالة جديدة لفتح صور الخامات (تخفي العداد)
+function openMaterialLB(url){
+  lbScale = 1;
+  const img = document.getElementById('lbi');
+  img.src = url;
+  img.style.transform = 'scale(1)';
+  document.getElementById('lbc').style.display = 'none';
   document.getElementById('lb').classList.add('show');
   document.body.style.overflow = 'hidden';
 }
@@ -1460,7 +1475,6 @@ document.addEventListener('keydown',e=>{
     showToast('خطأ: '+err.message,'error');
   }
 }
-
 /* --------------------------------------------------------------------------
    20. شاشة التحميل
    -------------------------------------------------------------------------- */
