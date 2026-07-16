@@ -1182,15 +1182,15 @@ body{
 }
 .wrap{position:relative; z-index:1; max-width:1080px; margin:0 auto; padding:32px 24px 80px;}
 
-/* ---------- حل مشكلة الأزرار على الآيفون (عام) ---------- */
-button, .toc-toggle, .image-card, .lightbox-nav, .back-to-top, .toc-list a {
+/* ---------- تحسين الأزرار للأيفون ---------- */
+button, .toc-toggle, .image-card, .lightbox-nav, .back-to-top, .toc-list a, .toc-float-label {
     cursor: pointer;
 }
-.toc-toggle, .image-card, .lightbox-nav, .back-to-top {
+.toc-toggle, .image-card, .lightbox-nav, .back-to-top, .toc-float-label {
     touch-action: manipulation;
 }
 
-/* ---------- الترويسة الرسمية ---------- */
+/* ---------- الترويسة ---------- */
 .doc-bar{
   display:flex; align-items:center; justify-content:space-between; gap:12px;
   padding:10px 4px 18px; border-bottom:1px solid var(--paper-line); margin-bottom:0;
@@ -1240,7 +1240,7 @@ button, .toc-toggle, .image-card, .lightbox-nav, .back-to-top, .toc-list a {
   gap:10px;
 }
 
-/* ---------- فهرس المحتويات (لاصق مع زر طي بدون جافاسكريبت) ---------- */
+/* ---------- فهرس المحتويات (لاصق) ---------- */
 .toc-wrap{
   position: sticky;
   top: 10px;
@@ -1272,33 +1272,7 @@ button, .toc-toggle, .image-card, .lightbox-nav, .back-to-top, .toc-list a {
   opacity: 0;
   pointer-events: none;
 }
-/* زر التبديل (label) */
-.toc-toggle-label {
-  background: var(--brass);
-  color: #fff;
-  border: none;
-  border-radius: 4px;
-  padding: 4px 10px;
-  font-size: 16px;
-  cursor: pointer;
-  transition: background .2s;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-family: 'Tajawal', sans-serif;
-  font-weight: 700;
-  touch-action: manipulation;
-  user-select: none;
-}
-.toc-toggle-label:hover {
-  background: var(--brass-dark);
-}
-.toc-toggle-label .arrow {
-  display: inline-block;
-  transition: transform .3s ease;
-}
-
-/* حاوية القائمة - يتم التحكم في ظهورها عبر checked */
+/* حاوية القائمة - يتم التحكم فيها عبر checkbox */
 .toc-list-wrap {
   overflow: hidden;
   max-height: 0;
@@ -1306,15 +1280,10 @@ button, .toc-toggle, .image-card, .lightbox-nav, .back-to-top, .toc-list a {
   transition: max-height 0.4s ease, opacity 0.3s ease, margin 0.3s ease;
   margin-top: 0;
 }
-/* عند تفعيل الـ checkbox نعرض القائمة */
 .toc-toggle-checkbox:checked ~ .toc-list-wrap {
   max-height: 80vh;
   opacity: 1;
   margin-top: 12px;
-}
-/* تدوير السهم عند الفتح */
-.toc-toggle-checkbox:checked ~ .toc-header .toc-toggle-label .arrow {
-  transform: rotate(180deg);
 }
 
 .toc-list{
@@ -1357,9 +1326,69 @@ button, .toc-toggle, .image-card, .lightbox-nav, .back-to-top, .toc-list a {
   flex-shrink:0;
 }
 
-/* على سطح المكتب نفتح القائمة دائماً، ونخفي زر التبديل */
+/* ---------- الزر العائم لفتح القائمة (أسفل الشاشة) ---------- */
+.toc-float {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  z-index: 999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+/* إخفاء checkbox الخاص بالزر العائم */
+.toc-float-checkbox {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.toc-float-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--brass);
+  color: #fff;
+  border: none;
+  border-radius: 50px;
+  padding: 12px 18px;
+  font-size: 18px;
+  font-family: 'Tajawal', sans-serif;
+  font-weight: 700;
+  box-shadow: var(--shadow-lg);
+  cursor: pointer;
+  transition: background 0.2s, transform 0.2s;
+  touch-action: manipulation;
+  user-select: none;
+  min-width: 56px;
+  min-height: 56px;
+}
+.toc-float-label:hover {
+  background: var(--brass-dark);
+  transform: scale(1.05);
+}
+.toc-float-label .badge {
+  background: rgba(255,255,255,0.25);
+  border-radius: 20px;
+  padding: 0 10px;
+  font-size: 13px;
+  font-weight: 700;
+}
+/* السهم الصغير بجانب النص */
+.toc-float-label .arrow {
+  display: inline-block;
+  transition: transform 0.3s ease;
+  font-size: 14px;
+}
+/* عند فتح القائمة، يدور السهم */
+.toc-float-checkbox:checked + .toc-float-label .arrow {
+  transform: rotate(180deg);
+}
+
+/* على سطح المكتب نخفي الزر العائم (لأن الفهرس مفتوح دائماً) */
 @media (min-width:769px) {
-  .toc-toggle-checkbox {
+  .toc-float {
     display: none;
   }
   .toc-list-wrap {
@@ -1367,12 +1396,9 @@ button, .toc-toggle, .image-card, .lightbox-nav, .back-to-top, .toc-list a {
     opacity: 1;
     margin-top: 12px;
   }
-  .toc-toggle-label {
-    display: none;
-  }
 }
 
-/* على الموبايل (أقل من 769px) القائمة مطوية افتراضياً */
+/* على الموبايل نضبط ظهور القائمة عبر checkbox العائم */
 @media (max-width:768px) {
   .toc-list-wrap {
     max-height: 0;
@@ -1384,12 +1410,15 @@ button, .toc-toggle, .image-card, .lightbox-nav, .back-to-top, .toc-list a {
     opacity: 1;
     margin-top: 10px;
   }
-  .toc-toggle-checkbox:checked ~ .toc-header .toc-toggle-label .arrow {
-    transform: rotate(180deg);
+  /* زر العائم يظهر في الأسفل */
+  .toc-float {
+    display: flex;
   }
+  /* عند فتح القائمة من الزر العائم، نتحكم في الـ checkbox الداخلي */
+  /* نربط الزر العائم بالـ checkbox الداخلي عبر JavaScript (لأنه في مكان مختلف) */
 }
 
-/* ---------- باقي الأنماط (مثل الأقسام، البطاقات، الخ) ---------- */
+/* ---------- باقي الأنماط (الأقسام، البطاقات، الخ) ---------- */
 .section-block{ margin-top:44px; scroll-margin-top:20px; }
 .section-head{
   display:flex; align-items:center; gap:14px; margin-bottom:20px;
@@ -1488,7 +1517,9 @@ button, .toc-toggle, .image-card, .lightbox-nav, .back-to-top, .toc-list a {
 .lightbox-next{left:20px;}
 
 .back-to-top {
-  position: fixed; bottom: 30px; left: 30px; width: 48px; height: 48px;
+  position: fixed; bottom: 100px; /* نرفع زر العودة للأعلى قليلاً لعدم التزاحم مع زر الفهرس */
+  left: 30px;
+  width: 48px; height: 48px;
   background: var(--brass); color: #fff; border: none; border-radius: 50%;
   font-size: 20px; cursor: pointer; box-shadow: var(--shadow-md);
   opacity: 0; transform: translateY(20px); transition: all 0.3s; z-index: 900;
@@ -1502,7 +1533,7 @@ button, .toc-toggle, .image-card, .lightbox-nav, .back-to-top, .toc-list a {
 @page{ size:A4; margin:16mm 14mm; }
 @media print{
   .watermark-layer{ opacity:.35; }
-  .toc-wrap, .lightbox, .back-to-top, .cover-note{ display:none !important; }
+  .toc-wrap, .lightbox, .back-to-top, .cover-note, .toc-float{ display:none !important; }
   .wrap{ padding: 0; max-width: 100%; }
   .room, .info-card, .color-card, .material-card, .signature-box{ box-shadow:none; break-inside:avoid; page-break-inside: avoid; border: 1px solid #ddd; }
   .image-card:hover, .color-card:hover, .material-card:hover{ transform:none; }
@@ -1523,8 +1554,8 @@ button, .toc-toggle, .image-card, .lightbox-nav, .back-to-top, .toc-list a {
   .toc-list a .label{ font-size:13px; }
   .toc-list a .leader{ font-size:10px; padding:1px 6px; }
   .toc-title{ font-size:10px; }
-  .toc-toggle-label{ font-size:14px; padding:3px 8px; }
-  .cover-note{ font-size:12px; padding:8px 12px; }
+  .toc-float-label{ padding:10px 14px; font-size:16px; min-width:48px; min-height:48px; }
+  .back-to-top { bottom: 90px; left: 20px; width: 42px; height: 42px; font-size:18px; }
 }
 </style>
 </head>
@@ -1556,13 +1587,11 @@ button, .toc-toggle, .image-card, .lightbox-nav, .back-to-top, .toc-list a {
 
   ${tocLinks.length ? `
   <div class="toc-wrap">
-    <input type="checkbox" id="tocToggle" class="toc-toggle-checkbox" ${window.innerWidth > 768 ? 'checked' : ''}>
+    <!-- checkbox المخفي الذي يتحكم في ظهور القائمة (مرتبط بالزر العائم عبر JS) -->
+    <input type="checkbox" id="tocToggle" class="toc-toggle-checkbox">
     <div class="toc-header">
       <div class="toc-title">فهرس المحتويات</div>
-      <label for="tocToggle" class="toc-toggle-label">
-        <span>القائمة</span>
-        <span class="arrow">▼</span>
-      </label>
+      <!-- لم نعد نضع زر هنا، تم نقله للأسفل -->
     </div>
     <div class="toc-list-wrap">
       <ul class="toc-list">
@@ -1656,6 +1685,16 @@ button, .toc-toggle, .image-card, .lightbox-nav, .back-to-top, .toc-list a {
   </div>
 </div>
 
+<!-- زر العائم لفتح/غلق الفهرس (يظهر فقط على الموبايل) -->
+<div class="toc-float">
+  <input type="checkbox" id="tocFloatToggle" class="toc-float-checkbox">
+  <label for="tocFloatToggle" class="toc-float-label">
+    <span>☰</span>
+    <span class="badge">${tocLinks.length}</span>
+    <span class="arrow">▼</span>
+  </label>
+</div>
+
 <button class="back-to-top" id="htmlBackToTop" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="العودة للأعلى">↑</button>
 
 <div class="lightbox" id="lb">
@@ -1741,25 +1780,41 @@ document.addEventListener('keydown', e => {
 // حل إضافي لـ iOS (تنشيط الأحداث)
 document.addEventListener('touchstart', function(){}, {passive: true});
 
-// ضبط حالة checkbox حسب حجم الشاشة (للتأكد من التوافق)
+// ربط الزر العائم بـ checkbox الداخلي لتوحيد الحالة
 document.addEventListener('DOMContentLoaded', function() {
-  const chk = document.getElementById('tocToggle');
-  if (chk) {
+  const floatChk = document.getElementById('tocFloatToggle');
+  const innerChk = document.getElementById('tocToggle');
+  if (floatChk && innerChk) {
+    // عند تغيير الزر العائم، نغير الداخلي
+    floatChk.addEventListener('change', function() {
+      innerChk.checked = this.checked;
+    });
+    // عند تغيير الداخلي (قد يحدث من أي مصدر آخر) نعدل العائم
+    innerChk.addEventListener('change', function() {
+      floatChk.checked = this.checked;
+    });
+    // ضبط الحالة الابتدائية حسب حجم الشاشة
     if (window.innerWidth > 768) {
-      chk.checked = true;
+      innerChk.checked = true;
+      floatChk.checked = true;
     } else {
-      chk.checked = false;
+      innerChk.checked = false;
+      floatChk.checked = false;
     }
   }
 });
+
+// عند تغيير حجم النافذة نضبط الحالة الابتدائية (فقط إذا كانت الحجم كبيراً)
 window.addEventListener('resize', function() {
-  const chk = document.getElementById('tocToggle');
-  if (chk) {
-    if (window.innerWidth > 768) {
-      chk.checked = true;
+  const innerChk = document.getElementById('tocToggle');
+  const floatChk = document.getElementById('tocFloatToggle');
+  if (window.innerWidth > 768) {
+    if (innerChk && !innerChk.checked) {
+      innerChk.checked = true;
+      if (floatChk) floatChk.checked = true;
     }
-    // لا نجبر على false لأن المستخدم قد يكون فتحها يدوياً
   }
+  // لا نجبر على false لأن المستخدم قد يكون فتحها يدوياً
 });
 </script>
 </body>
