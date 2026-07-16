@@ -244,6 +244,7 @@ function renderAll() {
   const main = document.getElementById('mainContent');
   main.innerHTML = '';
   
+  // إضافة أنيميشن دخول ناعم
   main.style.opacity = '0';
   main.style.transform = 'translateY(10px)';
   
@@ -256,6 +257,7 @@ function renderAll() {
     if (room) main.appendChild(renderRoomSheet(room));
   }
   
+  // تفعيل الأنيميشن
   requestAnimationFrame(() => {
     main.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
     main.style.opacity = '1';
@@ -395,7 +397,7 @@ function header(room, idx) {
   
   const del = document.createElement('button');
   del.className = 'btn-danger-text';
-  del.textContent = '️ حذف هذه الغرفة';
+  del.textContent = '🗑️ حذف هذه الغرفة';
   del.setAttribute('aria-label', 'حذف غرفة ' + room.name);
   del.style.cssText = 'color:var(--danger);font-size:14px;font-weight:700;cursor:pointer;padding:8px 14px;border:1px solid var(--danger);border-radius:4px;background:var(--card-bg);white-space:nowrap;transition:all 0.2s;position:relative;z-index:1;pointer-events:auto;';
   del.onmouseover = () => { del.style.background = 'var(--danger)'; del.style.color = '#fff'; };
@@ -712,7 +714,7 @@ function renderMaterialsSheet() {
     <div style="flex:1;min-width:150px;"><label class="field-label">نوع الخامة</label><select id="newMatType" style="width:100%;padding:10px 12px;border:1px solid var(--paper-line);border-radius:var(--radius);background:var(--input-bg);font-family:inherit;font-size:14px;"><option value="أرضيات">أرضيات</option><option value="جدران">جدران</option><option value="أسقف">أسقف</option><option value="إكسسوارات">إكسسوارات</option><option value="أثاث">أثاث</option><option value="إضاءة">إضاءة</option><option value="أخرى">أخرى</option></select></div>
     <div style="flex:1;min-width:150px;"><label class="field-label">الغرفة</label><select id="newMatRoom" style="width:100%;padding:10px 12px;border:1px solid var(--paper-line);border-radius:var(--radius);background:var(--input-bg);font-family:inherit;font-size:14px;"><option value="">-- اختر الغرفة --</option>${roomsOpts}</select></div>
     <div style="flex:1;min-width:150px;"><label class="field-label">الكود / الموديل</label><input type="text" id="newMatCode" placeholder="مثال: SK-2024-001"></div>
-    <div style="flex:1;min-width:200px;"><label class="field-label">صورة الخامة</label><div id="matImageDropzone" style="border:2px dashed var(--paper-line);border-radius:var(--radius);padding:12px;text-align:center;cursor:pointer;background:var(--empty-bg);transition:all 0.2s;position:relative;"><span id="matImageLabel" style="color:var(--ink-soft);font-size:13px;">📷 اضغط لاختيار صورة</span><input type="file" id="newMatImage" accept="image/*" style="display:block !important;width:100%;height:100%;opacity:0;position:absolute;top:0;left:0;cursor:pointer;"></div><img id="matImagePreview" style="max-width:100%;max-height:100px;margin-top:8px;border-radius:4px;display:none;border:1px solid var(--paper-line);cursor:pointer;" title="اضغط للمعاينة"></div>
+    <div style="flex:1;min-width:200px;"><label class="field-label">صورة الخامة</label><div id="matImageDropzone" style="border:2px dashed var(--paper-line);border-radius:var(--radius);padding:12px;text-align:center;cursor:pointer;background:var(--empty-bg);transition:all 0.2s;position:relative;"><span id="matImageLabel" style="color:var(--ink-soft);font-size:13px;"> اضغط لاختيار صورة</span><input type="file" id="newMatImage" accept="image/*" style="display:block !important;width:100%;height:100%;opacity:0;position:absolute;top:0;left:0;cursor:pointer;"></div><img id="matImagePreview" style="max-width:100%;max-height:100px;margin-top:8px;border-radius:4px;display:none;border:1px solid var(--paper-line);cursor:pointer;" title="اضغط للمعاينة"></div>
     <button class="btn btn-brass" id="addMatBtn" style="margin-top:20px;">+ إضافة الخامة</button>`;
   body.appendChild(ar);
   
@@ -771,7 +773,7 @@ function renderMaterialsSheet() {
       r.readAsDataURL(f);
     } else {
       mip.style.display = 'none';
-      mil.textContent = '📷 اضغط لاختيار صورة';
+      mil.textContent = ' اضغط لاختيار صورة';
     }
   }
   
@@ -1061,6 +1063,7 @@ document.getElementById('saveProjectBtn').onclick = () => {
   showToast('تم حفظ نسخة JSON', 'success');
 };
 
+// زر تصدير HTML
 document.addEventListener('DOMContentLoaded', () => {
   const btn = document.createElement('button');
   btn.className = 'ghost-btn';
@@ -1071,16 +1074,18 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 /* ==========================================================================
-19. تصدير HTML احترافي - مع شريط تنقل منسدل وأيقونات SVG محسّنة
+19. تصدير HTML احترافي مع علامة مائية مزغرفة + فتح صور الخامات
 ========================================================================== */
-function exportAsStandaloneHTML(){
+function exportAsStandaloneHTML() {
   showLoading('جاري إنشاء ملف HTML الاحترافي...', 'تجميع البيانات وتنسيق الصفحات...');
-  try{
+  try {
     const projectName = state.project.name || 'مشروع بدون اسم';
-    const totalImgs = state.rooms.reduce((s,r)=>s+r.images.length,0);
-    const genDate = new Date().toLocaleDateString('ar-EG', { year:'numeric', month:'long', day:'numeric' });
+    const totalImgs = state.rooms.reduce((s, r) => s + r.images.length, 0);
+    const genDate = new Date().toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' });
+    const genDateShort = new Date().toISOString().slice(0, 10);
+    const docRef = 'DRB-' + genDateShort.replace(/-/g, '') + '-' + String(state.rooms.length).padStart(2, '0');
 
-    function buildWatermarkDataURI(){
+    function buildWatermarkDataURI() {
       const tile = `
         <svg xmlns="http://www.w3.org/2000/svg" width="600" height="600" viewBox="0 0 600 600">
           <text x="20" y="200" font-family="Tajawal, Arial, sans-serif" font-size="80" font-weight="900"
@@ -1094,18 +1099,12 @@ function exportAsStandaloneHTML(){
     }
     const watermarkURI = buildWatermarkDataURI();
 
-    // ✅ إصلاح: كل غرفة لها تاب منفصل بدون أكواد
     const tocLinks = [
-      {href:'#project-info', label:'بيانات المشروع', icon:'📋'},
-      ...state.rooms.map((r, idx) => ({
-        href: '#room-' + idx,
-        label: r.name,
-        icon: '🏠',
-        count: r.images.length
-      })),
-      ...(state.colors.length ? [{href:'#colors-sec', label:'الألوان والدهانات', icon:'🎨', count: state.colors.length}] : []),
-      ...(state.materials.length ? [{href:'#materials-sec', label:'المواد والخامات', icon:'📦', count: state.materials.length}] : []),
-      ...(state.signature.approved ? [{href:'#signature-sec', label:'اعتماد التصميم', icon:'✅'}] : [])
+      { href: '#project-info', label: 'بيانات المشروع', tag: 'INFO' },
+      ...state.rooms.map((r, idx) => ({ href: '#room-' + idx, label: r.name, tag: 'A-' + (101 + idx) })),
+      ...(state.colors.length ? [{ href: '#colors-sec', label: 'الألوان والدهانات', tag: 'A-900' }] : []),
+      ...(state.materials.length ? [{ href: '#materials-sec', label: 'المواد والخامات', tag: 'A-950' }] : []),
+      ...(state.signature.approved ? [{ href: '#signature-sec', label: 'اعتماد التصميم', tag: 'A-999' }] : [])
     ];
 
     const h = `<!DOCTYPE html>
@@ -1120,112 +1119,95 @@ function exportAsStandaloneHTML(){
 <style>
 :root{
   --ink:#1c2530; --ink-soft:#5a6675;
-  --brass:#b8863e; --brass-dark:#8a6428; --brass-glow:rgba(184,134,62,.25);
+  --brass:#b8863e; --brass-dark:#8a6428; --brass-glow:rgba(184,134,62,.14);
   --paper:#fffdf8; --paper-alt:#f7f4ed; --paper-line:#e3dcc9;
-  --green:#6f7a5e; --radius:12px;
-  --shadow-sm:0 2px 4px rgba(28,37,48,.06);
-  --shadow-md:0 8px 24px rgba(28,37,48,.1);
-  --shadow-lg:0 20px 50px rgba(28,37,48,.15);
+  --green:#6f7a5e; --radius:6px;
+  --shadow-sm:0 1px 3px rgba(28,37,48,.07);
+  --shadow-md:0 6px 16px rgba(28,37,48,.08);
+  --shadow-lg:0 10px 28px rgba(28,37,48,.12);
 }
 *{box-sizing:border-box;margin:0;padding:0;}
 html{scroll-behavior:smooth;}
 body{
   font-family:'Tajawal','Segoe UI',Tahoma,sans-serif;
-  background:radial-gradient(circle at 10% 0%, rgba(184,134,62,.08), transparent 50%),
-             radial-gradient(circle at 90% 20%, rgba(111,122,94,.06), transparent 50%),
-             #f3efe6;
+  background:#f3efe6;
   color:var(--ink); line-height:1.7; min-height:100vh; position:relative;
   -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;
 }
 .watermark-layer{
   position:fixed; inset:0; z-index:0; pointer-events:none;
   background-image:url("${watermarkURI}");
-  background-repeat:repeat; background-size:600px 600px;
+  background-repeat:repeat; background-size:640px 640px; opacity:.6;
 }
 .wrap{position:relative; z-index:1; max-width:1080px; margin:0 auto; padding:32px 24px 80px;}
 
-/* ---------- الغلاف ---------- */
-.cover{
-  background:linear-gradient(160deg,#1b2a41 0%, #253552 50%, #1b2a41 100%);
-  color:#f4ecd8; border-radius:16px; padding:50px 40px;
-  box-shadow:var(--shadow-lg); position:relative; overflow:hidden;
-  border:1px solid rgba(184,134,62,.3);
+/* ---------- الترويسة الرسمية (Letterhead) ---------- */
+.doc-bar{
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
+  padding:10px 4px 18px; border-bottom:1px solid var(--paper-line); margin-bottom:0;
+  font-family:'JetBrains Mono',monospace; font-size:11.5px; color:var(--ink-soft); letter-spacing:.03em;
 }
-.cover::before, .cover::after{
-  content:''; position:absolute; width:300px; height:300px; border-radius:50%;
-  background:radial-gradient(circle, var(--brass-glow), transparent 70%);
-}
-.cover::before{ top:-100px; left:-100px; }
-.cover::after{ bottom:-120px; right:-80px; }
-.cover-badge{
-  display:inline-flex; align-items:center; gap:8px;
-  background:rgba(184,134,62,.15); border:1px solid var(--brass);
-  color:#e9d19f; font-size:12px; font-weight:700; letter-spacing:.5px;
-  padding:6px 14px; border-radius:30px; position:relative; z-index:2; text-transform:uppercase;
-}
-.cover h1{
-  font-size:clamp(30px,5vw,46px); font-weight:900; margin:20px 0 8px;
-  position:relative; z-index:2; letter-spacing:-0.5px; line-height:1.2;
-}
-.cover .sub{ color:#c9b98a; font-size:15px; position:relative; z-index:2; }
-.cover-meta{
-  display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
-  gap:16px; margin-top:36px; position:relative; z-index:2;
-}
-.cover-meta .item{
-  background:rgba(255,255,255,.05); border:1px solid rgba(233,209,159,.2);
-  border-radius:10px; padding:16px; backdrop-filter:blur(4px);
-}
-.cover-meta .item .l{ font-size:11px; color:#c9b98a; margin-bottom:6px; font-weight:500; }
-.cover-meta .item .v{ font-size:18px; font-weight:800; color:#ffffff; }
+.doc-bar b{ color:var(--brass-dark); font-weight:700; }
 
-/* ---------- شريط التنقل ---------- */
-.nav-bar{
-  position:sticky; top:12px; z-index:100;
-  background:rgba(255,253,248,0.95);
-  backdrop-filter:blur(12px);
-  border:1px solid var(--paper-line);
-  border-radius:14px;
-  box-shadow:var(--shadow-md);
-  padding:8px;
-  margin-bottom:24px;
+.cover{
+  background:#1b2a41; color:#f4ecd8; border-radius:var(--radius);
+  padding:44px 40px 36px; box-shadow:var(--shadow-md); position:relative;
+  border-top:4px solid var(--brass); margin-top:22px;
 }
-.nav-bar-inner{
-  display:flex; align-items:center; gap:8px;
-  flex-wrap:wrap;
+.cover-eyebrow{
+  font-size:12px; font-weight:700; letter-spacing:.12em; text-transform:uppercase;
+  color:#c9b98a; display:flex; align-items:center; gap:8px;
 }
-.nav-item{
-  flex:1; min-width:120px;
-  display:flex; align-items:center; justify-content:center; gap:8px;
-  padding:10px 14px;
-  background:transparent;
-  border:1px solid transparent;
-  border-radius:10px;
-  cursor:pointer;
-  font-family:'Tajawal',sans-serif;
-  font-size:13px; font-weight:700;
-  color:var(--ink-soft);
-  transition:all .25s ease;
+.cover-eyebrow::before{ content:''; width:22px; height:1px; background:var(--brass); display:inline-block; }
+.cover h1{
+  font-size:clamp(26px,4vw,38px); font-weight:800; margin:14px 0 6px;
+  letter-spacing:-0.3px; line-height:1.3; color:#fff;
 }
-.nav-item:hover{
-  background:var(--paper-alt);
-  color:var(--ink);
-  transform:translateY(-1px);
+.cover .sub{ color:#c9b98a; font-size:13.5px; }
+.cover-meta{
+  display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+  gap:1px; margin-top:30px; background:rgba(233,209,159,.18);
+  border:1px solid rgba(233,209,159,.18); border-radius:4px; overflow:hidden;
 }
-.nav-item.active{
-  background:linear-gradient(145deg,var(--brass),var(--brass-dark));
-  color:#fff;
-  box-shadow:0 4px 12px rgba(184,134,62,.3);
+.cover-meta .item{ background:rgba(13,19,32,.55); padding:14px 18px; }
+.cover-meta .item .l{ font-size:11px; color:#c9b98a; margin-bottom:6px; font-weight:500; }
+.cover-meta .item .v{ font-size:16px; font-weight:700; color:#ffffff; }
+.cover-status{
+  display:inline-flex; align-items:center; gap:6px; margin-top:22px;
+  font-size:12px; font-weight:700; padding:6px 14px; border-radius:3px;
+  border:1px solid rgba(233,209,159,.3); color:#e9d19f;
 }
+.cover-status.approved{ border-color:rgba(111,122,94,.6); color:#bcd4a8; }
+
+/* ---------- فهرس المحتويات ---------- */
+.toc-wrap{ margin:34px 0 6px; }
+.toc-title{
+  font-family:'JetBrains Mono',monospace; font-size:12px; font-weight:700; color:var(--brass-dark);
+  text-transform:uppercase; letter-spacing:.12em; margin-bottom:10px; padding-bottom:8px;
+  border-bottom:1px solid var(--paper-line);
+}
+.toc-list{ list-style:none; }
+.toc-list li{ border-bottom:1px dotted var(--paper-line); }
+.toc-list a{
+  display:flex; align-items:center; gap:12px; padding:9px 4px;
+  text-decoration:none; color:var(--ink); font-size:14px; font-weight:600;
+  transition:color .2s ease;
+}
+.toc-list a:hover{ color:var(--brass-dark); }
+.toc-list a .tag{
+  font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--brass-dark);
+  border:1px solid var(--paper-line); padding:2px 8px; border-radius:3px; flex-shrink:0;
+}
+.toc-list a .label{ flex:1; }
+.toc-list a .leader{ flex:0 0 auto; color:var(--ink-soft); font-size:12px; }
 
 /* ---------- الأقسام ---------- */
-.section-block{
-  display:none;
-  animation: fadeInUp .4s ease-out forwards;
-}
-.section-block.active{
-  display:block;
-}
+.section-block{ margin-top:44px; scroll-margin-top:20px; animation: fadeInUp 0.6s ease-out forwards; opacity: 0; }
+.section-block:nth-child(2) { animation-delay: 0.1s; }
+.section-block:nth-child(3) { animation-delay: 0.2s; }
+.section-block:nth-child(4) { animation-delay: 0.3s; }
+.section-block:nth-child(5) { animation-delay: 0.4s; }
+
 @keyframes fadeInUp {
   from { opacity: 0; transform: translateY(20px); }
   to { opacity: 1; transform: translateY(0); }
@@ -1233,9 +1215,13 @@ body{
 
 .section-head{
   display:flex; align-items:center; gap:14px; margin-bottom:20px;
-  padding-bottom:12px; border-bottom:2px solid var(--paper-line);
+  padding-bottom:10px; border-bottom:2px solid #1b2a41;
 }
-.section-head h2{ font-size:22px; color:#1b2a41; font-weight:800; flex:1; }
+.section-head .num{
+  font-family:'JetBrains Mono',monospace; font-size:12px; font-weight:700; color:var(--brass-dark);
+  border:1px solid var(--brass); padding:3px 9px; border-radius:3px; flex-shrink:0;
+}
+.section-head h2{ font-size:19px; color:#1b2a41; font-weight:800; flex:1; letter-spacing:.01em; }
 .section-head .count{
   font-family:'JetBrains Mono',monospace; font-size:12px;
   background:var(--paper-alt); border:1px solid var(--paper-line); padding:4px 12px;
@@ -1244,72 +1230,85 @@ body{
 
 /* ---------- بطاقة معلومات المشروع ---------- */
 .info-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;}
-.info-card{background:var(--paper);padding:18px;border-radius:var(--radius);border:1px solid var(--paper-line);box-shadow:var(--shadow-sm);}
+.info-card{background:var(--paper);padding:18px;border-radius:var(--radius);border:1px solid var(--paper-line);box-shadow:var(--shadow-sm); transition: transform 0.2s ease;}
+.info-card:hover{transform: translateY(-2px);}
 .info-card .label{font-size:12px;color:var(--ink-soft);margin-bottom:6px;font-weight:600;}
 .info-card .value{font-size:18px;font-weight:800;color:#1b2a41;}
 
 /* ---------- الغرف ---------- */
 .room{
-  background:var(--paper); padding:28px; border-radius:16px; margin:24px 0;
-  border:1px solid var(--paper-line); box-shadow:var(--shadow-sm);
+  background:var(--paper); padding:26px; border-radius:var(--radius); margin:20px 0;
+  border:1px solid var(--paper-line); box-shadow:var(--shadow-sm); transition: box-shadow 0.3s ease;
 }
-.room-head{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:18px; padding-bottom:14px; border-bottom:2px solid var(--paper-line);}
-.room-head h3{font-size:20px;color:#1b2a41;font-weight:800;}
-.sub-label{font-size:13px;font-weight:700;color:var(--brass-dark);margin:20px 0 12px;text-transform:uppercase;letter-spacing:.5px;}
-.images-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:18px;margin:14px 0;}
-.image-card{background:#fff;border:1px solid var(--paper-line);border-radius:12px;overflow:hidden;cursor:pointer;transition:all .3s cubic-bezier(.4,0,.2,1);}
-.image-card:hover{transform:translateY(-6px);box-shadow:var(--shadow-md);border-color:var(--brass);}
+.room:hover { box-shadow: var(--shadow-md); }
+.room-head{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:18px; padding-bottom:14px; border-bottom:1px solid var(--paper-line);}
+.room-head h3{font-size:18px;color:#1b2a41;font-weight:800;}
+.room-tag{font-family:'JetBrains Mono',monospace;font-size:11px;background:#1b2a41;color:#e9d19f;padding:4px 10px;border-radius:3px;font-weight:700;}
+.sub-label{font-size:12.5px;font-weight:700;color:var(--brass-dark);margin:20px 0 12px;text-transform:uppercase;letter-spacing:.08em;}
+
+.images-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px;margin:14px 0;}
+.image-card{background:#fff;border:1px solid var(--paper-line);border-radius:var(--radius);overflow:hidden;cursor:pointer;transition:transform .25s ease,box-shadow .25s ease,border-color .25s ease;}
+.image-card:hover{transform:translateY(-3px);box-shadow:var(--shadow-md);border-color:var(--brass);}
 .image-card .img-wrapper{position:relative;overflow:hidden;height:200px;background:#efe9db;}
-.image-card img{width:100%;height:100%;object-fit:cover;transition:transform .6s cubic-bezier(.4,0,.2,1);}
-.image-card:hover img{transform:scale(1.08);}
-.image-card .overlay{position:absolute;inset:0;background:rgba(20,20,20,0);display:flex;align-items:center;justify-content:center;transition:all .3s;}
-.image-card:hover .overlay{background:rgba(15,15,15,.4);}
-.image-card .overlay-icon{color:#fff;font-size:32px;opacity:0;transition:opacity .3s;transform:scale(0.8);}
-.image-card:hover .overlay-icon{opacity:1;transform:scale(1);}
-.image-card .caption{padding:12px 14px;font-size:13px;color:var(--ink-soft);border-top:1px solid var(--paper-line);display:flex;justify-content:space-between;font-weight:600;}
-.image-badge{position:absolute;top:10px;right:10px;background:var(--brass);color:#241a06;padding:4px 10px;border-radius:6px;font-size:10.5px;font-weight:800;z-index:2;box-shadow:var(--shadow-sm);}
+.image-card img{width:100%;height:100%;object-fit:cover;transition:transform .5s ease;}
+.image-card:hover img{transform:scale(1.05);}
+.image-card .overlay{position:absolute;inset:0;background:rgba(20,20,20,0);display:flex;align-items:center;justify-content:center;transition:all .25s;}
+.image-card:hover .overlay{background:rgba(15,15,15,.35);}
+.image-card .overlay-icon{color:#fff;font-size:28px;opacity:0;transition:opacity .25s;}
+.image-card:hover .overlay-icon{opacity:1;}
+.image-card .caption{padding:10px 14px;font-size:12.5px;color:var(--ink-soft);border-top:1px solid var(--paper-line);display:flex;justify-content:space-between;font-weight:600;}
+.image-badge{position:absolute;top:10px;right:10px;background:var(--brass);color:#241a06;padding:3px 9px;border-radius:3px;font-size:10.5px;font-weight:800;z-index:2;}
 .image-badge.alt{background:#e9e3d3;color:var(--ink-soft);}
-.notes{background:var(--paper-alt);padding:18px 20px;border-radius:10px;margin:16px 0;white-space:pre-wrap;border-right:4px solid var(--brass);font-size:14.5px;color:var(--ink);line-height:1.8;}
+.notes{background:var(--paper-alt);padding:16px 18px;border-radius:4px;margin:16px 0;white-space:pre-wrap;border-right:3px solid var(--brass);font-size:14px;color:var(--ink);line-height:1.8;}
 .empty-note{color:#a89c82;font-size:14px;font-style:italic;padding:14px 0;}
 
 /* ---------- الألوان ---------- */
-.colors-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:18px;margin:16px 0;}
-.color-card{background:#fff;border:1px solid var(--paper-line);border-radius:12px;overflow:hidden;box-shadow:var(--shadow-sm);transition:all .25s;}
-.color-card:hover{box-shadow:var(--shadow-md);transform:translateY(-4px);}
-.color-swatch{height:120px;position:relative;}
-.color-swatch .hexlabel{position:absolute;bottom:10px;left:10px;background:rgba(255,255,255,.95);padding:4px 10px;border-radius:6px;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:#1c2530;box-shadow:var(--shadow-sm);}
+.colors-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px;margin:16px 0;}
+.color-card{background:#fff;border:1px solid var(--paper-line);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow-sm);transition:transform .2s ease,box-shadow .2s ease;}
+.color-card:hover{box-shadow:var(--shadow-md);transform:translateY(-2px);}
+.color-swatch{height:110px;position:relative;}
+.color-swatch .hexlabel{position:absolute;bottom:10px;left:10px;background:rgba(255,255,255,.95);padding:4px 10px;border-radius:3px;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:#1c2530;}
 .color-info{padding:14px 16px;}
-.color-info .name{font-weight:800;margin-bottom:4px;font-size:15px;}
+.color-info .name{font-weight:700;margin-bottom:4px;font-size:14.5px;}
 .color-info .note{margin-top:8px;font-size:12.5px;color:var(--ink-soft);line-height:1.5;}
 
 /* ---------- الخامات ---------- */
-.materials-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:18px;margin:16px 0;}
-.material-card{background:#fff;border:1px solid var(--paper-line);border-radius:12px;overflow:hidden;box-shadow:var(--shadow-sm);transition:all .25s;}
-.material-card:hover{box-shadow:var(--shadow-md);transform:translateY(-4px);}
-.material-card img{width:100%;height:160px;object-fit:cover;cursor:zoom-in;transition:transform .4s;}
-.material-card:hover img{transform:scale(1.05);}
-.material-noimg{height:160px;background:linear-gradient(135deg,#f1ede3,#e3dcc9);display:flex;align-items:center;justify-content:center;font-size:48px;opacity:.3;}
+.materials-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px;margin:16px 0;}
+.material-card{background:#fff;border:1px solid var(--paper-line);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow-sm);transition:transform .2s ease,box-shadow .2s ease;}
+.material-card:hover{box-shadow:var(--shadow-md);transform:translateY(-2px);}
+.material-card img{width:100%;height:160px;object-fit:cover;cursor:zoom-in;transition:transform .3s ease;}
+.material-card:hover img{transform:scale(1.03);}
+.material-noimg{height:160px;background:linear-gradient(135deg,#f1ede3,#e3dcc9);display:flex;align-items:center;justify-content:center;font-size:40px;opacity:.3;}
 .material-info{padding:14px 16px;}
-.pill{display:inline-block;color:#fff;padding:4px 10px;border-radius:6px;font-size:10.5px;font-weight:800;margin-left:6px;margin-bottom:8px;}
+.pill{display:inline-block;color:#fff;padding:3px 9px;border-radius:3px;font-size:10.5px;font-weight:700;margin-left:6px;margin-bottom:8px;}
 .pill.type{background:var(--brass);}
 .pill.room{background:var(--green);}
-.material-name{font-weight:800;margin:6px 0 4px;font-size:15px;}
+.material-name{font-weight:700;margin:6px 0 4px;font-size:14.5px;}
 .material-code{font-family:'JetBrains Mono',monospace;color:var(--ink-soft);font-size:12px;}
 
-/* ---------- التوقيع ---------- */
+/* ---------- الاعتماد الرسمي ---------- */
 .signature-box{
-  background:linear-gradient(155deg,#eef3ec,#e4ecdf); border:1px solid #bcd4c1;
-  padding:30px; border-radius:16px; margin:18px 0; position:relative; overflow:hidden;
+  background:var(--paper); border:1px solid var(--paper-line);
+  padding:26px 28px; border-radius:var(--radius); margin:18px 0;
 }
-.signature-box::before{content:'✔';position:absolute;font-size:140px;color:rgba(111,122,94,.06);top:-20px;left:10px;pointer-events:none;}
-.signature-box p{position:relative;z-index:1;margin-bottom:8px;font-size:15px;}
-.signature-box img{max-width:300px;margin-top:16px;border:1px solid #bcd4c1;border-radius:8px;background:#fff;position:relative;z-index:1;box-shadow:var(--shadow-sm);}
+.approval-row{ display:flex; flex-wrap:wrap; gap:24px; margin-bottom:18px; }
+.approval-row .field{ flex:1; min-width:180px; }
+.approval-row .field .l{ font-size:11.5px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.06em; margin-bottom:4px; }
+.approval-row .field .v{ font-size:15px; font-weight:700; color:#1b2a41; border-bottom:1px solid var(--paper-line); padding-bottom:8px; }
+.approval-stamp{
+  display:inline-flex; align-items:center; gap:8px; font-weight:700; font-size:13px;
+  color:var(--green); border:1px solid #bcd4c1; background:rgba(111,122,94,.08);
+  padding:6px 14px; border-radius:3px; margin-bottom:18px;
+}
+.signature-box img{max-width:280px; display:block; border:1px solid var(--paper-line); border-radius:3px; background:#fff;}
+.signature-box .sig-caption{ font-size:11.5px; color:var(--ink-soft); margin-top:6px; border-top:1px dotted var(--paper-line); padding-top:6px; max-width:280px; }
 
 /* ---------- الفوتر ---------- */
-.footer{text-align:center;margin-top:60px;padding-top:30px;border-top:2px solid var(--paper-line);color:#8a8072;font-size:13px;}
-.footer .brand{font-weight:900;color:var(--brass-dark);font-size:16px;margin-bottom:4px;}
+.footer{text-align:center;margin-top:56px;padding-top:24px;border-top:1px solid var(--paper-line);color:#8a8072;font-size:12.5px;}
+.footer .brand{font-weight:800;color:var(--brass-dark);font-size:14px;margin-bottom:6px;}
+.footer .disclaimer{max-width:520px;margin:8px auto 0;font-size:11.5px;line-height:1.7;color:#a89c82;}
 
-/* ---------- Lightbox ---------- */
+/* ---------- صندوق العرض (Lightbox) ---------- */
 .lightbox{display:none;position:fixed;inset:0;background:rgba(8,10,14,.96);z-index:9700;align-items:center;justify-content:center;backdrop-filter:blur(4px);}
 .lightbox.show{display:flex;animation:fadeIn .2s ease;}
 .lightbox-stage{width:min(92vw,1100px);height:min(84vh,800px);display:flex;align-items:center;justify-content:center;overflow:hidden;}
@@ -1322,22 +1321,34 @@ body{
 .lightbox-prev{right:20px;}
 .lightbox-next{left:20px;}
 
+/* ---------- زر العودة للأعلى ---------- */
+.back-to-top {
+  position: fixed; bottom: 30px; left: 30px; width: 48px; height: 48px;
+  background: var(--brass); color: #fff; border: none; border-radius: 50%;
+  font-size: 20px; cursor: pointer; box-shadow: var(--shadow-md);
+  opacity: 0; transform: translateY(20px); transition: all 0.3s; z-index: 900;
+}
+.back-to-top.show { opacity: 1; transform: translateY(0); }
+.back-to-top:hover { background: var(--brass-dark); transform: translateY(-3px); }
+
 @keyframes fadeIn { from{opacity:0;} to{opacity:1;} }
 
+@page{ size:A4; margin:16mm 14mm; }
 @media print{
-  .watermark-layer{ opacity:.5; }
-  .lightbox, .nav-bar{ display:none !important; }
-  .section-block{ display:block !important; break-inside:avoid; page-break-inside: avoid; }
+  .watermark-layer{ opacity:.35; }
+  .toc-wrap, .lightbox, .back-to-top{ display:none !important; }
   .wrap{ padding: 0; max-width: 100%; }
-  .room, .info-card, .color-card, .material-card, .signature-box{ box-shadow:none; border: 1px solid #ddd; }
+  .room, .info-card, .color-card, .material-card, .signature-box{ box-shadow:none; break-inside:avoid; page-break-inside: avoid; border: 1px solid #ddd; }
+  .image-card:hover, .color-card:hover, .material-card:hover{ transform:none; }
   body{ background:#fff; }
-  .cover{ -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .cover{ -webkit-print-color-adjust: exact; print-color-adjust: exact; break-inside:avoid; }
+  .section-block{ break-inside:auto; }
 }
 @media (max-width:640px){
   .cover{ padding:30px 20px; }
   .wrap{ padding:16px 12px 60px; }
   .images-grid{ grid-template-columns: 1fr; }
-  .nav-item{ min-width:90px; padding:8px 10px; font-size:11px; }
+  .approval-row{ flex-direction:column; gap:14px; }
 }
 </style>
 </head>
@@ -1345,47 +1356,47 @@ body{
 <div class="watermark-layer"></div>
 <div class="wrap">
 
+  <div class="doc-bar">
+    <span><b>شطّب</b> — دفتر مرجع التصميم</span>
+    <span>مرجع الوثيقة: <b>${docRef}</b> · تاريخ الإصدار: ${genDateShort}</span>
+  </div>
+
   <div class="cover">
-    <span class="cover-badge">📐 دفتر مرجع التصميم — شطّب</span>
+    <div class="cover-eyebrow">وثيقة مرجعية رسمية — توثيق اختيارات ما قبل التنفيذ</div>
     <h1>${escapeHtml(projectName)}</h1>
-    <div class="sub">تم إعداد هذا الملف بتاريخ ${genDate}</div>
+    <div class="sub">تم إعداد هذا المستند بتاريخ ${genDate}</div>
     <div class="cover-meta">
-      <div class="item"><div class="l">العميل</div><div class="v">${escapeHtml(state.project.client||'—')}</div></div>
-      <div class="item"><div class="l">المهندس / المصمم</div><div class="v">${escapeHtml(state.project.engineer||'—')}</div></div>
+      <div class="item"><div class="l">العميل</div><div class="v">${escapeHtml(state.project.client || '—')}</div></div>
+      <div class="item"><div class="l">المهندس / المصمم</div><div class="v">${escapeHtml(state.project.engineer || '—')}</div></div>
       <div class="item"><div class="l">عدد الغرف</div><div class="v">${state.rooms.length}</div></div>
       <div class="item"><div class="l">إجمالي الصور</div><div class="v">${totalImgs}</div></div>
     </div>
+    <div class="cover-status ${state.signature.approved ? 'approved' : ''}">${state.signature.approved ? '✓ معتمد من العميل' : '● بانتظار الاعتماد'}</div>
   </div>
 
-  <!-- شريط التنقل -->
-  <div class="nav-bar">
-    <div class="nav-bar-inner">
-      ${tocLinks.map((l, i) => `
-        <button class="nav-item ${i === 0 ? 'active' : ''}" data-target="${l.href.substring(1)}" onclick="showSection('${l.href.substring(1)}', this)">
-          <span style="font-size:18px;">${l.icon}</span>
-          <span>${escapeHtml(l.label)}</span>
-          ${l.count !== undefined ? `<span style="font-size:11px;opacity:.8;">(${l.count})</span>` : ''}
-        </button>
-      `).join('')}
-    </div>
-  </div>
+  ${tocLinks.length ? `
+  <div class="toc-wrap">
+    <div class="toc-title">فهرس المحتويات</div>
+    <ul class="toc-list">
+      ${tocLinks.map((l, li) => `<li><a href="${l.href}"><span class="tag">${l.tag}</span><span class="label">${escapeHtml(l.label)}</span><span class="leader">${String(li + 1).padStart(2, '0')}</span></a></li>`).join('')}
+    </ul>
+  </div>` : ''}
 
-  <!-- قسم بيانات المشروع -->
-  <div class="section-block active" id="project-info">
-    <div class="section-head"><h2> بيانات المشروع</h2></div>
+  <div class="section-block" id="project-info">
+    <div class="section-head"><span class="num">01</span><h2>بيانات المشروع</h2></div>
     <div class="info-grid">
       <div class="info-card"><div class="label">اسم المشروع</div><div class="value">${escapeHtml(projectName)}</div></div>
-      <div class="info-card"><div class="label">العميل</div><div class="value">${escapeHtml(state.project.client||'-')}</div></div>
-      <div class="info-card"><div class="label">المصمم</div><div class="value">${escapeHtml(state.project.engineer||'-')}</div></div>
-      <div class="info-card"><div class="label">التاريخ</div><div class="value">${state.project.date||'-'}</div></div>
+      <div class="info-card"><div class="label">العميل</div><div class="value">${escapeHtml(state.project.client || '-')}</div></div>
+      <div class="info-card"><div class="label">المصمم</div><div class="value">${escapeHtml(state.project.engineer || '-')}</div></div>
+      <div class="info-card"><div class="label">التاريخ</div><div class="value">${state.project.date || '-'}</div></div>
     </div>
   </div>
 
-  <!-- ✅ كل غرفة في قسم منفصل -->
-  ${state.rooms.map((room, idx) => `
-    <div class="section-block" id="room-${idx}">
-      <div class="section-head"><h2>🏠 ${escapeHtml(room.name)}</h2><span class="count">${room.images.length} صورة</span></div>
-      <div class="room">
+  <div class="section-block">
+    <div class="section-head"><span class="num">02</span><h2>الغرف</h2><span class="count">${state.rooms.length} غرفة</span></div>
+    ${state.rooms.map((room, idx) => `
+      <div class="room" id="room-${idx}">
+        <div class="room-head"><h3>${escapeHtml(room.name)}</h3></div>
         ${room.images.length ? `
           <div class="sub-label">الصور المرجعية (${room.images.length})</div>
           <div class="images-grid" data-room="${idx}">
@@ -1400,13 +1411,12 @@ body{
               </div>`).join('')}
           </div>` : `<div class="empty-note">لا توجد صور مرفوعة لهذه الغرفة بعد.</div>`}
         ${room.notes ? `<div class="sub-label">ملاحظات</div><div class="notes">${escapeHtml(room.notes)}</div>` : ''}
-      </div>
-    </div>
-  `).join('')}
+      </div>`).join('')}
+  </div>
 
   ${state.colors.length ? `
   <div class="section-block" id="colors-sec">
-    <div class="section-head"><h2>🎨 الألوان والدهانات</h2><span class="count">${state.colors.length} لون</span></div>
+    <div class="section-head"><span class="num">03</span><h2>الألوان والدهانات</h2><span class="count">${state.colors.length} لون</span></div>
     <div class="colors-grid">
       ${state.colors.map(c => `
         <div class="color-card">
@@ -1421,7 +1431,7 @@ body{
 
   ${state.materials.length ? `
   <div class="section-block" id="materials-sec">
-    <div class="section-head"><h2>📦 المواد والخامات</h2><span class="count">${state.materials.length} خامة</span></div>
+    <div class="section-head"><span class="num">04</span><h2>المواد والخامات</h2><span class="count">${state.materials.length} خامة</span></div>
     <div class="materials-grid">
       ${state.materials.map(m => {
         const room = state.rooms.find(r => r.id === m.roomId);
@@ -1439,19 +1449,25 @@ body{
 
   ${state.signature.approved ? `
   <div class="section-block" id="signature-sec">
-    <div class="section-head"><h2>✅ اعتماد العميل</h2></div>
+    <div class="section-head"><span class="num">05</span><h2>اعتماد العميل</h2></div>
     <div class="signature-box">
-      <p><strong>تم الاعتماد من:</strong> ${escapeHtml(state.signature.name)}</p>
-      <p><strong>التاريخ:</strong> ${state.signature.approvedAt}</p>
-      ${state.signature.dataUrl ? `<img src="${state.signature.dataUrl}" alt="توقيع العميل">` : ''}
+      <div class="approval-stamp">✓ معتمد رسمياً</div>
+      <div class="approval-row">
+        <div class="field"><div class="l">تم الاعتماد من</div><div class="v">${escapeHtml(state.signature.name)}</div></div>
+        <div class="field"><div class="l">تاريخ الاعتماد</div><div class="v">${state.signature.approvedAt}</div></div>
+      </div>
+      ${state.signature.dataUrl ? `<img src="${state.signature.dataUrl}" alt="توقيع العميل"><div class="sig-caption">توقيع العميل</div>` : ''}
     </div>
   </div>` : ''}
 
   <div class="footer">
     <p class="brand">شطّب</p>
-    <p>دفتر مرجع التصميم — تم الإنشاء بتاريخ ${genDate}</p>
+    <p>دفتر مرجع التصميم — تم الإنشاء بتاريخ ${genDate} — مرجع الوثيقة ${docRef}</p>
+    <p class="disclaimer">هذا المستند مُعد لأغراض التوثيق الداخلي بين طرفي المشروع، ويُعتبر مرجعاً لاختيارات التشطيب المتفق عليها قبل بدء التنفيذ.</p>
   </div>
 </div>
+
+<button class="back-to-top" id="htmlBackToTop" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="العودة للأعلى">↑</button>
 
 <div class="lightbox" id="lb">
   <button class="lightbox-close" onclick="closeLB()" aria-label="إغلاق">✕</button>
@@ -1462,20 +1478,6 @@ body{
 </div>
 
 <script>
-// دالة التبديل بين الأقسام
-function showSection(targetId, btn) {
-  document.querySelectorAll('.section-block').forEach(s => s.classList.remove('active'));
-  const target = document.getElementById(targetId);
-  if (target) {
-    target.classList.add('active');
-    target.style.animation = 'none';
-    setTimeout(() => { target.style.animation = ''; }, 10);
-  }
-  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
-  if (btn) btn.classList.add('active');
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
 const R = ${JSON.stringify(state.rooms.map(r => r.images.map(i => i.dataUrl)))};
 let ci = 0, ii = 0, lbScale = 1;
 
@@ -1766,3 +1768,6 @@ document.addEventListener('keydown', e => {
 28. بدء التطبيق
 -------------------------------------------------------------------------- */
 renderAll();
+
+
+
