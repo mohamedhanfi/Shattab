@@ -1063,6 +1063,46 @@ document.getElementById('saveProjectBtn').onclick = () => {
   showToast('تم حفظ نسخة JSON', 'success');
 };
 
+/* --- فتح نسخة محفوظة --- */
+document.getElementById('loadProjectBtn').onclick = () => {
+  document.getElementById('loadInput').click();
+};
+
+document.getElementById('loadInput').onchange = async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  try {
+    const text = await file.text();
+    const loaded = JSON.parse(text);
+    if (!loaded || typeof loaded !== 'object') throw new Error('ملف غير صالح');
+
+    const ok = await showConfirm({
+      title: 'فتح نسخة محفوظة؟',
+      message: 'سيتم استبدال بيانات المشروع الحالي بالكامل ببيانات هذا الملف. لا يمكن التراجع عن هذا الإجراء.',
+      confirmLabel: 'فتح الملف',
+      icon: '📂'
+    });
+    if (!ok) { e.target.value = ''; return; }
+
+    if (loaded.project) Object.assign(state.project, loaded.project);
+    if (Array.isArray(loaded.rooms)) state.rooms = loaded.rooms;
+    if (Array.isArray(loaded.colors)) state.colors = loaded.colors;
+    if (Array.isArray(loaded.materials)) state.materials = loaded.materials;
+    if (loaded.signature) Object.assign(state.signature, loaded.signature);
+
+    currentTab = 'project';
+    renderAll();
+    saveToLocalStorage();
+    showToast('تم فتح المشروع بنجاح', 'success');
+  } catch (err) {
+    console.error('Load failed:', err);
+    showToast('تعذر فتح الملف — تأكد أنه ملف JSON صحيح من شطّب', 'error');
+  } finally {
+    e.target.value = '';
+  }
+};
+
 // زر تصدير HTML
 document.addEventListener('DOMContentLoaded', () => {
   const btn = document.createElement('button');
@@ -1099,12 +1139,13 @@ function exportAsStandaloneHTML() {
     }
     const watermarkURI = buildWatermarkDataURI();
 
+    // فهرس مع أيقونات
     const tocLinks = [
-      { href: '#project-info', label: 'بيانات المشروع', tag: 'INFO' },
-      ...state.rooms.map((r, idx) => ({ href: '#room-' + idx, label: r.name, tag: 'A-' + (101 + idx) })),
-      ...(state.colors.length ? [{ href: '#colors-sec', label: 'الألوان والدهانات', tag: 'A-900' }] : []),
-      ...(state.materials.length ? [{ href: '#materials-sec', label: 'المواد والخامات', tag: 'A-950' }] : []),
-      ...(state.signature.approved ? [{ href: '#signature-sec', label: 'اعتماد التصميم', tag: 'A-999' }] : [])
+      { href: '#project-info', label: 'بيانات المشروع', icon: '📋' },
+      ...state.rooms.map((r, idx) => ({ href: '#room-' + idx, label: r.name, icon: '🏠' })),
+      ...(state.colors.length ? [{ href: '#colors-sec', label: 'الألوان والدهانات', icon: '🎨' }] : []),
+      ...(state.materials.length ? [{ href: '#materials-sec', label: 'المواد والخامات', icon: '🧱' }] : []),
+      ...(state.signature.approved ? [{ href: '#signature-sec', label: 'اعتماد التصميم', icon: '✍️' }] : [])
     ];
 
     const h = `<!DOCTYPE html>
@@ -1141,7 +1182,15 @@ body{
 }
 .wrap{position:relative; z-index:1; max-width:1080px; margin:0 auto; padding:32px 24px 80px;}
 
-/* ---------- الترويسة الرسمية (Letterhead) ---------- */
+/* ---------- حل مشكلة الأزرار على الآيفون (عام) ---------- */
+button, .toc-toggle, .image-card, .lightbox-nav, .back-to-top, .toc-list a {
+    cursor: pointer;
+}
+.toc-toggle, .image-card, .lightbox-nav, .back-to-top {
+    touch-action: manipulation;
+}
+
+/* ---------- الترويسة الرسمية ---------- */
 .doc-bar{
   display:flex; align-items:center; justify-content:space-between; gap:12px;
   padding:10px 4px 18px; border-bottom:1px solid var(--paper-line); margin-bottom:0;
@@ -1178,48 +1227,173 @@ body{
   border:1px solid rgba(233,209,159,.3); color:#e9d19f;
 }
 .cover-status.approved{ border-color:rgba(111,122,94,.6); color:#bcd4a8; }
+.cover-note{
+  background:rgba(255,253,248,0.1);
+  padding:10px 16px;
+  border-radius:4px;
+  margin-top:18px;
+  font-size:13px;
+  color:#c9b98a;
+  border-right:3px solid var(--brass);
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
 
-/* ---------- فهرس المحتويات ---------- */
-.toc-wrap{ margin:34px 0 6px; }
+/* ---------- فهرس المحتويات (لاصق مع زر طي بدون جافاسكريبت) ---------- */
+.toc-wrap{
+  position: sticky;
+  top: 10px;
+  z-index: 100;
+  background: rgba(255,253,248,0.92);
+  backdrop-filter: blur(8px);
+  padding: 14px 18px;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+  margin: 34px 0 16px;
+  border: 1px solid var(--paper-line);
+}
+.toc-header{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
 .toc-title{
   font-family:'JetBrains Mono',monospace; font-size:12px; font-weight:700; color:var(--brass-dark);
-  text-transform:uppercase; letter-spacing:.12em; margin-bottom:10px; padding-bottom:8px;
-  border-bottom:1px solid var(--paper-line);
+  text-transform:uppercase; letter-spacing:.12em;
+  margin:0;
+  padding:0;
+  border:none;
 }
-.toc-list{ list-style:none; }
-.toc-list li{ border-bottom:1px dotted var(--paper-line); }
+/* إخفاء checkbox */
+.toc-toggle-checkbox {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+/* زر التبديل (label) */
+.toc-toggle-label {
+  background: var(--brass);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background .2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'Tajawal', sans-serif;
+  font-weight: 700;
+  touch-action: manipulation;
+  user-select: none;
+}
+.toc-toggle-label:hover {
+  background: var(--brass-dark);
+}
+.toc-toggle-label .arrow {
+  display: inline-block;
+  transition: transform .3s ease;
+}
+
+/* حاوية القائمة - يتم التحكم في ظهورها عبر checked */
+.toc-list-wrap {
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  transition: max-height 0.4s ease, opacity 0.3s ease, margin 0.3s ease;
+  margin-top: 0;
+}
+/* عند تفعيل الـ checkbox نعرض القائمة */
+.toc-toggle-checkbox:checked ~ .toc-list-wrap {
+  max-height: 80vh;
+  opacity: 1;
+  margin-top: 12px;
+}
+/* تدوير السهم عند الفتح */
+.toc-toggle-checkbox:checked ~ .toc-header .toc-toggle-label .arrow {
+  transform: rotate(180deg);
+}
+
+.toc-list{
+  list-style:none;
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(180px,1fr));
+  gap:6px 10px;
+  overflow-y: auto;
+  padding: 2px 0;
+  max-height: 70vh;
+}
+.toc-list li{
+  border:1px solid transparent;
+  border-radius:var(--radius);
+  background:transparent;
+  transition: background .2s, border-color .2s;
+}
+.toc-list li:hover{
+  background:var(--paper-alt);
+  border-color:var(--paper-line);
+}
 .toc-list a{
-  display:flex; align-items:center; gap:12px; padding:9px 4px;
-  text-decoration:none; color:var(--ink); font-size:14px; font-weight:600;
-  transition:color .2s ease;
+  display:flex; align-items:center; gap:8px;
+  padding:6px 8px;
+  text-decoration:none; color:var(--ink);
+  cursor:pointer;
 }
-.toc-list a:hover{ color:var(--brass-dark); }
-.toc-list a .tag{
-  font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--brass-dark);
-  border:1px solid var(--paper-line); padding:2px 8px; border-radius:3px; flex-shrink:0;
+.toc-list a .icon{
+  font-size:18px;
+  line-height:1;
+  flex-shrink:0;
 }
-.toc-list a .label{ flex:1; }
-.toc-list a .leader{ flex:0 0 auto; color:var(--ink-soft); font-size:12px; }
-
-/* ---------- الأقسام ---------- */
-.section-block{ margin-top:44px; scroll-margin-top:20px; animation: fadeInUp 0.6s ease-out forwards; opacity: 0; }
-.section-block:nth-child(2) { animation-delay: 0.1s; }
-.section-block:nth-child(3) { animation-delay: 0.2s; }
-.section-block:nth-child(4) { animation-delay: 0.3s; }
-.section-block:nth-child(5) { animation-delay: 0.4s; }
-
-@keyframes fadeInUp {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
+.toc-list a .label{
+  font-size:14px; font-weight:600; color:#1b2a41; line-height:1.3;
+  flex:1;
+}
+.toc-list a .leader{
+  font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--ink-soft);
+  background:var(--paper-alt); padding:2px 8px; border-radius:12px;
+  flex-shrink:0;
 }
 
+/* على سطح المكتب نفتح القائمة دائماً، ونخفي زر التبديل */
+@media (min-width:769px) {
+  .toc-toggle-checkbox {
+    display: none;
+  }
+  .toc-list-wrap {
+    max-height: 80vh;
+    opacity: 1;
+    margin-top: 12px;
+  }
+  .toc-toggle-label {
+    display: none;
+  }
+}
+
+/* على الموبايل (أقل من 769px) القائمة مطوية افتراضياً */
+@media (max-width:768px) {
+  .toc-list-wrap {
+    max-height: 0;
+    opacity: 0;
+    margin-top: 0;
+  }
+  .toc-toggle-checkbox:checked ~ .toc-list-wrap {
+    max-height: 80vh;
+    opacity: 1;
+    margin-top: 10px;
+  }
+  .toc-toggle-checkbox:checked ~ .toc-header .toc-toggle-label .arrow {
+    transform: rotate(180deg);
+  }
+}
+
+/* ---------- باقي الأنماط (مثل الأقسام، البطاقات، الخ) ---------- */
+.section-block{ margin-top:44px; scroll-margin-top:20px; }
 .section-head{
   display:flex; align-items:center; gap:14px; margin-bottom:20px;
   padding-bottom:10px; border-bottom:2px solid #1b2a41;
-}
-.section-head .num{
-  font-family:'JetBrains Mono',monospace; font-size:12px; font-weight:700; color:var(--brass-dark);
-  border:1px solid var(--brass); padding:3px 9px; border-radius:3px; flex-shrink:0;
 }
 .section-head h2{ font-size:19px; color:#1b2a41; font-weight:800; flex:1; letter-spacing:.01em; }
 .section-head .count{
@@ -1227,15 +1401,12 @@ body{
   background:var(--paper-alt); border:1px solid var(--paper-line); padding:4px 12px;
   border-radius:20px; color:var(--ink-soft); font-weight:600;
 }
-
-/* ---------- بطاقة معلومات المشروع ---------- */
 .info-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;}
 .info-card{background:var(--paper);padding:18px;border-radius:var(--radius);border:1px solid var(--paper-line);box-shadow:var(--shadow-sm); transition: transform 0.2s ease;}
 .info-card:hover{transform: translateY(-2px);}
 .info-card .label{font-size:12px;color:var(--ink-soft);margin-bottom:6px;font-weight:600;}
 .info-card .value{font-size:18px;font-weight:800;color:#1b2a41;}
 
-/* ---------- الغرف ---------- */
 .room{
   background:var(--paper); padding:26px; border-radius:var(--radius); margin:20px 0;
   border:1px solid var(--paper-line); box-shadow:var(--shadow-sm); transition: box-shadow 0.3s ease;
@@ -1247,7 +1418,7 @@ body{
 .sub-label{font-size:12.5px;font-weight:700;color:var(--brass-dark);margin:20px 0 12px;text-transform:uppercase;letter-spacing:.08em;}
 
 .images-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px;margin:14px 0;}
-.image-card{background:#fff;border:1px solid var(--paper-line);border-radius:var(--radius);overflow:hidden;cursor:pointer;transition:transform .25s ease,box-shadow .25s ease,border-color .25s ease;}
+.image-card{background:#fff;border:1px solid var(--paper-line);border-radius:var(--radius);overflow:hidden;cursor:pointer;transition:transform .25s ease,box-shadow .25s ease,border-color .25s ease;touch-action:manipulation;}
 .image-card:hover{transform:translateY(-3px);box-shadow:var(--shadow-md);border-color:var(--brass);}
 .image-card .img-wrapper{position:relative;overflow:hidden;height:200px;background:#efe9db;}
 .image-card img{width:100%;height:100%;object-fit:cover;transition:transform .5s ease;}
@@ -1262,7 +1433,6 @@ body{
 .notes{background:var(--paper-alt);padding:16px 18px;border-radius:4px;margin:16px 0;white-space:pre-wrap;border-right:3px solid var(--brass);font-size:14px;color:var(--ink);line-height:1.8;}
 .empty-note{color:#a89c82;font-size:14px;font-style:italic;padding:14px 0;}
 
-/* ---------- الألوان ---------- */
 .colors-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px;margin:16px 0;}
 .color-card{background:#fff;border:1px solid var(--paper-line);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow-sm);transition:transform .2s ease,box-shadow .2s ease;}
 .color-card:hover{box-shadow:var(--shadow-md);transform:translateY(-2px);}
@@ -1272,7 +1442,6 @@ body{
 .color-info .name{font-weight:700;margin-bottom:4px;font-size:14.5px;}
 .color-info .note{margin-top:8px;font-size:12.5px;color:var(--ink-soft);line-height:1.5;}
 
-/* ---------- الخامات ---------- */
 .materials-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px;margin:16px 0;}
 .material-card{background:#fff;border:1px solid var(--paper-line);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow-sm);transition:transform .2s ease,box-shadow .2s ease;}
 .material-card:hover{box-shadow:var(--shadow-md);transform:translateY(-2px);}
@@ -1286,7 +1455,6 @@ body{
 .material-name{font-weight:700;margin:6px 0 4px;font-size:14.5px;}
 .material-code{font-family:'JetBrains Mono',monospace;color:var(--ink-soft);font-size:12px;}
 
-/* ---------- الاعتماد الرسمي ---------- */
 .signature-box{
   background:var(--paper); border:1px solid var(--paper-line);
   padding:26px 28px; border-radius:var(--radius); margin:18px 0;
@@ -1303,30 +1471,28 @@ body{
 .signature-box img{max-width:280px; display:block; border:1px solid var(--paper-line); border-radius:3px; background:#fff;}
 .signature-box .sig-caption{ font-size:11.5px; color:var(--ink-soft); margin-top:6px; border-top:1px dotted var(--paper-line); padding-top:6px; max-width:280px; }
 
-/* ---------- الفوتر ---------- */
 .footer{text-align:center;margin-top:56px;padding-top:24px;border-top:1px solid var(--paper-line);color:#8a8072;font-size:12.5px;}
 .footer .brand{font-weight:800;color:var(--brass-dark);font-size:14px;margin-bottom:6px;}
 .footer .disclaimer{max-width:520px;margin:8px auto 0;font-size:11.5px;line-height:1.7;color:#a89c82;}
 
-/* ---------- صندوق العرض (Lightbox) ---------- */
 .lightbox{display:none;position:fixed;inset:0;background:rgba(8,10,14,.96);z-index:9700;align-items:center;justify-content:center;backdrop-filter:blur(4px);}
 .lightbox.show{display:flex;animation:fadeIn .2s ease;}
 .lightbox-stage{width:min(92vw,1100px);height:min(84vh,800px);display:flex;align-items:center;justify-content:center;overflow:hidden;}
 .lightbox-stage img{max-width:100%;max-height:100%;object-fit:contain;cursor:zoom-in;user-select:none;transition:transform .2s ease;box-shadow:0 20px 60px rgba(0,0,0,.5);}
-.lightbox-close{position:absolute;top:20px;left:20px;width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;font-size:20px;cursor:pointer;transition:all .2s;}
+.lightbox-close{position:absolute;top:20px;left:20px;width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;font-size:20px;cursor:pointer;transition:all .2s;touch-action:manipulation;}
 .lightbox-close:hover{background:rgba(255,255,255,.25);transform:rotate(90deg);}
 .lightbox-counter{position:absolute;top:24px;right:24px;color:#e4c893;font-size:13px;background:rgba(255,255,255,.08);padding:6px 14px;border-radius:20px;font-family:'JetBrains Mono',monospace;}
-.lightbox-nav{position:absolute;top:50%;transform:translateY(-50%);width:50px;height:50px;border-radius:50%;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:#fff;font-size:24px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;}
+.lightbox-nav{position:absolute;top:50%;transform:translateY(-50%);width:50px;height:50px;border-radius:50%;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:#fff;font-size:24px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;touch-action:manipulation;}
 .lightbox-nav:hover{background:var(--brass);color:#241a06;border-color:var(--brass);}
 .lightbox-prev{right:20px;}
 .lightbox-next{left:20px;}
 
-/* ---------- زر العودة للأعلى ---------- */
 .back-to-top {
   position: fixed; bottom: 30px; left: 30px; width: 48px; height: 48px;
   background: var(--brass); color: #fff; border: none; border-radius: 50%;
   font-size: 20px; cursor: pointer; box-shadow: var(--shadow-md);
   opacity: 0; transform: translateY(20px); transition: all 0.3s; z-index: 900;
+  touch-action: manipulation;
 }
 .back-to-top.show { opacity: 1; transform: translateY(0); }
 .back-to-top:hover { background: var(--brass-dark); transform: translateY(-3px); }
@@ -1336,7 +1502,7 @@ body{
 @page{ size:A4; margin:16mm 14mm; }
 @media print{
   .watermark-layer{ opacity:.35; }
-  .toc-wrap, .lightbox, .back-to-top{ display:none !important; }
+  .toc-wrap, .lightbox, .back-to-top, .cover-note{ display:none !important; }
   .wrap{ padding: 0; max-width: 100%; }
   .room, .info-card, .color-card, .material-card, .signature-box{ box-shadow:none; break-inside:avoid; page-break-inside: avoid; border: 1px solid #ddd; }
   .image-card:hover, .color-card:hover, .material-card:hover{ transform:none; }
@@ -1344,11 +1510,21 @@ body{
   .cover{ -webkit-print-color-adjust: exact; print-color-adjust: exact; break-inside:avoid; }
   .section-block{ break-inside:auto; }
 }
+
 @media (max-width:640px){
   .cover{ padding:30px 20px; }
   .wrap{ padding:16px 12px 60px; }
   .images-grid{ grid-template-columns: 1fr; }
   .approval-row{ flex-direction:column; gap:14px; }
+  .toc-wrap{ padding:10px 12px; top:6px; margin:20px 0 12px; }
+  .toc-list{ grid-template-columns:1fr; gap:4px; }
+  .toc-list a{ padding:6px 8px; }
+  .toc-list a .icon{ font-size:16px; }
+  .toc-list a .label{ font-size:13px; }
+  .toc-list a .leader{ font-size:10px; padding:1px 6px; }
+  .toc-title{ font-size:10px; }
+  .toc-toggle-label{ font-size:14px; padding:3px 8px; }
+  .cover-note{ font-size:12px; padding:8px 12px; }
 }
 </style>
 </head>
@@ -1372,18 +1548,31 @@ body{
       <div class="item"><div class="l">إجمالي الصور</div><div class="v">${totalImgs}</div></div>
     </div>
     <div class="cover-status ${state.signature.approved ? 'approved' : ''}">${state.signature.approved ? '✓ معتمد من العميل' : '● بانتظار الاعتماد'}</div>
+    <div class="cover-note">
+      <span>💡</span>
+      <span>يُرجى فتح هذا الملف باستخدام متصفح ويب (مثل Chrome أو Safari) للحصول على أفضل تجربة عرض وتفاعل.</span>
+    </div>
   </div>
 
   ${tocLinks.length ? `
   <div class="toc-wrap">
-    <div class="toc-title">فهرس المحتويات</div>
-    <ul class="toc-list">
-      ${tocLinks.map((l, li) => `<li><a href="${l.href}"><span class="tag">${l.tag}</span><span class="label">${escapeHtml(l.label)}</span><span class="leader">${String(li + 1).padStart(2, '0')}</span></a></li>`).join('')}
-    </ul>
+    <input type="checkbox" id="tocToggle" class="toc-toggle-checkbox" ${window.innerWidth > 768 ? 'checked' : ''}>
+    <div class="toc-header">
+      <div class="toc-title">فهرس المحتويات</div>
+      <label for="tocToggle" class="toc-toggle-label">
+        <span>القائمة</span>
+        <span class="arrow">▼</span>
+      </label>
+    </div>
+    <div class="toc-list-wrap">
+      <ul class="toc-list">
+        ${tocLinks.map((l, li) => `<li><a href="${l.href}"><span class="icon">${l.icon}</span><span class="label">${escapeHtml(l.label)}</span><span class="leader">${String(li + 1).padStart(2, '0')}</span></a></li>`).join('')}
+      </ul>
+    </div>
   </div>` : ''}
 
   <div class="section-block" id="project-info">
-    <div class="section-head"><span class="num">01</span><h2>بيانات المشروع</h2></div>
+    <div class="section-head"><h2>📋 بيانات المشروع</h2></div>
     <div class="info-grid">
       <div class="info-card"><div class="label">اسم المشروع</div><div class="value">${escapeHtml(projectName)}</div></div>
       <div class="info-card"><div class="label">العميل</div><div class="value">${escapeHtml(state.project.client || '-')}</div></div>
@@ -1393,7 +1582,7 @@ body{
   </div>
 
   <div class="section-block">
-    <div class="section-head"><span class="num">02</span><h2>الغرف</h2><span class="count">${state.rooms.length} غرفة</span></div>
+    <div class="section-head"><h2>🏠 الغرف</h2><span class="count">${state.rooms.length} غرفة</span></div>
     ${state.rooms.map((room, idx) => `
       <div class="room" id="room-${idx}">
         <div class="room-head"><h3>${escapeHtml(room.name)}</h3></div>
@@ -1416,7 +1605,7 @@ body{
 
   ${state.colors.length ? `
   <div class="section-block" id="colors-sec">
-    <div class="section-head"><span class="num">03</span><h2>الألوان والدهانات</h2><span class="count">${state.colors.length} لون</span></div>
+    <div class="section-head"><h2>🎨 الألوان والدهانات</h2><span class="count">${state.colors.length} لون</span></div>
     <div class="colors-grid">
       ${state.colors.map(c => `
         <div class="color-card">
@@ -1431,7 +1620,7 @@ body{
 
   ${state.materials.length ? `
   <div class="section-block" id="materials-sec">
-    <div class="section-head"><span class="num">04</span><h2>المواد والخامات</h2><span class="count">${state.materials.length} خامة</span></div>
+    <div class="section-head"><h2>🧱 المواد والخامات</h2><span class="count">${state.materials.length} خامة</span></div>
     <div class="materials-grid">
       ${state.materials.map(m => {
         const room = state.rooms.find(r => r.id === m.roomId);
@@ -1449,7 +1638,7 @@ body{
 
   ${state.signature.approved ? `
   <div class="section-block" id="signature-sec">
-    <div class="section-head"><span class="num">05</span><h2>اعتماد العميل</h2></div>
+    <div class="section-head"><h2>✍️ اعتماد العميل</h2></div>
     <div class="signature-box">
       <div class="approval-stamp">✓ معتمد رسمياً</div>
       <div class="approval-row">
@@ -1478,6 +1667,7 @@ body{
 </div>
 
 <script>
+// نفس الكود السابق لـ lightbox والأزرار الأخرى
 const R = ${JSON.stringify(state.rooms.map(r => r.images.map(i => i.dataUrl)))};
 let ci = 0, ii = 0, lbScale = 1;
 
@@ -1546,6 +1736,30 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') closeLB();
   else if (e.key === 'ArrowRight') prevImg();
   else if (e.key === 'ArrowLeft') nextImg();
+});
+
+// حل إضافي لـ iOS (تنشيط الأحداث)
+document.addEventListener('touchstart', function(){}, {passive: true});
+
+// ضبط حالة checkbox حسب حجم الشاشة (للتأكد من التوافق)
+document.addEventListener('DOMContentLoaded', function() {
+  const chk = document.getElementById('tocToggle');
+  if (chk) {
+    if (window.innerWidth > 768) {
+      chk.checked = true;
+    } else {
+      chk.checked = false;
+    }
+  }
+});
+window.addEventListener('resize', function() {
+  const chk = document.getElementById('tocToggle');
+  if (chk) {
+    if (window.innerWidth > 768) {
+      chk.checked = true;
+    }
+    // لا نجبر على false لأن المستخدم قد يكون فتحها يدوياً
+  }
 });
 </script>
 </body>
@@ -1768,6 +1982,3 @@ document.addEventListener('keydown', e => {
 28. بدء التطبيق
 -------------------------------------------------------------------------- */
 renderAll();
-
-
-
