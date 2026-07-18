@@ -1340,7 +1340,6 @@ button, .image-card, .lightbox-nav, .back-to-top, .toc-list a, .toc-float-label,
   bottom: calc(110px + env(safe-area-inset-bottom, 0px));
   left: auto;
   top: auto;
-  transform: rotate(-6deg);
   z-index: 9999;
   display: flex;
 }
