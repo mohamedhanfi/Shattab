@@ -1336,10 +1336,13 @@ button, .image-card, .lightbox-nav, .back-to-top, .toc-list a, .toc-float-label,
 /* ---------- الزر العائم لفتح القائمة (CSS فقط، ثابت أيًا كان مكان التمرير) ---------- */
 .toc-float {
   position: fixed;
-  bottom: calc(22px + env(safe-area-inset-bottom, 0px));
   right: 20px;
-  z-index: 999;
-  display: none; /* يظهر فقط على الموبايل عبر media query بالأسفل */
+  bottom: calc(110px + env(safe-area-inset-bottom, 0px));
+  left: auto;
+  top: auto;
+  transform: rotate(-6deg);
+  z-index: 9999;
+  display: flex;
 }
 .toc-float-label {
   display: flex;
@@ -1788,7 +1791,7 @@ button, .image-card, .lightbox-nav, .back-to-top, .toc-list a, .toc-float-label,
 <div class="toc-float">
   <label for="tocToggle" class="toc-float-label">
     <span class="hamburger"><span></span><span></span><span></span></span>
-    <span class="badge">${tocLinks.length}</span>
+    
   </label>
 </div>
 
