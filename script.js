@@ -1174,20 +1174,36 @@ body{
   background:#f3efe6;
   color:var(--ink); line-height:1.7; min-height:100vh; position:relative;
   -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;
+  -webkit-tap-highlight-color: rgba(184,134,62,.25);
 }
 .watermark-layer{
-  position:fixed; inset:0; z-index:0; pointer-events:none;
+  position:fixed; inset:0; z-index:-1; pointer-events:none;
   background-image:url("${watermarkURI}");
   background-repeat:repeat; background-size:640px 640px; opacity:.6;
 }
-.wrap{position:relative; z-index:1; max-width:1080px; margin:0 auto; padding:32px 24px 80px;}
+.wrap{position:relative; max-width:1080px; margin:0 auto; padding:32px 24px 80px;}
 
 /* ---------- تحسين الأزرار للأيفون ---------- */
-button, .toc-toggle, .image-card, .lightbox-nav, .back-to-top, .toc-list a, .toc-float-label {
+button, .image-card, .lightbox-nav, .back-to-top, .toc-list a, .toc-float-label, .toc-backdrop, .toc-popup-close {
     cursor: pointer;
+    -webkit-tap-highlight-color: rgba(184,134,62,.25);
 }
-.toc-toggle, .image-card, .lightbox-nav, .back-to-top, .toc-float-label {
+.image-card, .lightbox-nav, .back-to-top, .toc-list a, .toc-float-label, .toc-backdrop, .toc-popup-close {
     touch-action: manipulation;
+}
+
+/* ==========================================================================
+   نظام الفهرس: مفتاح واحد (checkbox واحد) يتحكم في كل شيء بـ CSS خالص
+   بدون أي اعتماد على الجافاسكريبت — يعمل حتى لو JS معطّلة تماماً
+   (مثل بعض أوضاع المعاينة السريعة على الآيفون).
+   الـ checkbox موجود كأول عنصر داخل body، وكل عناصر التحكم (الزر العائم،
+   زر الإغلاق، الخلفية الشفافة) عبارة عن <label for="tocToggle"> فقط.
+   ========================================================================== */
+.toc-toggle-checkbox {
+  position: absolute;
+  opacity: 0;
+  width: 0; height: 0;
+  pointer-events: none;
 }
 
 /* ---------- الترويسة ---------- */
@@ -1240,18 +1256,20 @@ button, .toc-toggle, .image-card, .lightbox-nav, .back-to-top, .toc-list a, .toc
   gap:10px;
 }
 
-/* ---------- فهرس المحتويات (لاصق) ---------- */
+/* ---------- فهرس المحتويات (لاصق على الديسكتوب) ---------- */
 .toc-wrap{
   position: sticky;
   top: 10px;
   z-index: 100;
   background: rgba(255,253,248,0.92);
-  backdrop-filter: blur(8px);
   padding: 14px 18px;
   border-radius: var(--radius);
   box-shadow: var(--shadow-md);
   margin: 34px 0 16px;
   border: 1px solid var(--paper-line);
+  /* ملاحظة: لا نضع backdrop-filter/filter/transform هنا أبداً — أي منهم
+     على عنصر أب يحوّل موضع أي عنصر ابن position:fixed بالنسبة له بدل
+     الشاشة كلها، وده كان سبب اختفاء القائمة في نسخة سابقة. */
 }
 .toc-header{
   display: flex;
@@ -1262,160 +1280,227 @@ button, .toc-toggle, .image-card, .lightbox-nav, .back-to-top, .toc-list a, .toc
 .toc-title{
   font-family:'JetBrains Mono',monospace; font-size:12px; font-weight:700; color:var(--brass-dark);
   text-transform:uppercase; letter-spacing:.12em;
-  margin:0;
-  padding:0;
-  border:none;
+  margin:0; padding:0; border:none;
 }
-/* إخفاء checkbox */
-.toc-toggle-checkbox {
-  position: absolute;
-  opacity: 0;
-  pointer-events: none;
-}
-/* حاوية القائمة - يتم التحكم فيها عبر checkbox */
+
+/* حاوية القائمة على الديسكتوب: كتلة ثابتة الظهور دائماً */
 .toc-list-wrap {
-  overflow: hidden;
-  max-height: 0;
-  opacity: 0;
-  transition: max-height 0.4s ease, opacity 0.3s ease, margin 0.3s ease;
-  margin-top: 0;
-}
-.toc-toggle-checkbox:checked ~ .toc-list-wrap {
-  max-height: 80vh;
+  overflow: visible;
+  max-height: none;
   opacity: 1;
   margin-top: 12px;
 }
 
-.toc-list{
-  list-style:none;
-  display:grid;
-  grid-template-columns:repeat(auto-fill,minmax(180px,1fr));
-  gap:6px 10px;
-  overflow-y: auto;
+.toc-list {
+  list-style: none;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 10px;
   padding: 2px 0;
-  max-height: 70vh;
 }
-.toc-list li{
-  border:1px solid transparent;
-  border-radius:var(--radius);
-  background:transparent;
-  transition: background .2s, border-color .2s;
+.toc-list::-webkit-scrollbar { display: none; }
+
+.toc-list li {
+  display: inline-block;
+  border: 1px solid var(--paper-line);
+  border-radius: var(--radius);
+  background: var(--paper);
+  transition: all .2s ease;
 }
-.toc-list li:hover{
-  background:var(--paper-alt);
-  border-color:var(--paper-line);
+.toc-list li:hover { background: var(--paper-alt); border-color: var(--brass); }
+.toc-list li:active { background: var(--paper-alt); }
+
+.toc-list a {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  text-decoration: none;
+  color: var(--ink);
+  cursor: pointer;
 }
-.toc-list a{
-  display:flex; align-items:center; gap:8px;
-  padding:6px 8px;
-  text-decoration:none; color:var(--ink);
-  cursor:pointer;
-}
-.toc-list a .icon{
-  font-size:18px;
-  line-height:1;
-  flex-shrink:0;
-}
-.toc-list a .label{
-  font-size:14px; font-weight:600; color:#1b2a41; line-height:1.3;
-  flex:1;
-}
-.toc-list a .leader{
-  font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--ink-soft);
-  background:var(--paper-alt); padding:2px 8px; border-radius:12px;
-  flex-shrink:0;
+.toc-list a .icon { font-size: 18px; line-height: 1; flex-shrink: 0; }
+.toc-list a .label { font-size: 14px; font-weight: 600; color: #1b2a41; line-height: 1.3; }
+.toc-list a .leader {
+  font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-soft);
+  background: var(--paper-alt); padding: 2px 6px; border-radius: 12px; flex-shrink: 0;
 }
 
-/* ---------- الزر العائم لفتح القائمة (أسفل الشاشة) ---------- */
+/* رأس البطاقة العائمة (يظهر فقط على الموبايل) */
+.toc-popup-header{ display: none; }
+
+/* الخلفية الشفافة التي تقفل القائمة عند الضغط خارجها (تظهر فقط على الموبايل) */
+.toc-backdrop{ display: none; }
+
+/* ---------- الزر العائم لفتح القائمة (CSS فقط، ثابت أيًا كان مكان التمرير) ---------- */
 .toc-float {
   position: fixed;
-  bottom: 30px;
-  right: 30px;
+  bottom: calc(22px + env(safe-area-inset-bottom, 0px));
+  right: 20px;
   z-index: 999;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-}
-/* إخفاء checkbox الخاص بالزر العائم */
-.toc-float-checkbox {
-  position: absolute;
-  opacity: 0;
-  pointer-events: none;
+  display: none; /* يظهر فقط على الموبايل عبر media query بالأسفل */
 }
 .toc-float-label {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  background: var(--brass);
+  gap: 9px;
+  background: linear-gradient(155deg, var(--brass) 0%, var(--brass-dark) 100%);
   color: #fff;
   border: none;
   border-radius: 50px;
-  padding: 12px 18px;
-  font-size: 18px;
+  padding: 14px 20px;
+  font-size: 19px;
   font-family: 'Tajawal', sans-serif;
   font-weight: 700;
-  box-shadow: var(--shadow-lg);
+  box-shadow: 0 8px 22px rgba(138,100,40,.4), 0 2px 6px rgba(0,0,0,.15);
   cursor: pointer;
-  transition: background 0.2s, transform 0.2s;
+  transition: box-shadow .25s ease, transform .25s ease;
   touch-action: manipulation;
   user-select: none;
-  min-width: 56px;
-  min-height: 56px;
+  min-width: 58px;
+  min-height: 58px;
 }
-.toc-float-label:hover {
-  background: var(--brass-dark);
-  transform: scale(1.05);
+.toc-float-label:active { transform: scale(0.94); }
+.toc-float-label .hamburger{ position: relative; width: 18px; height: 14px; flex-shrink: 0; }
+.toc-float-label .hamburger span{
+  position: absolute; left:0; right:0; height:2px; background:#fff; border-radius:2px;
+  transition: transform .3s ease, opacity .2s ease, top .3s ease;
 }
+.toc-float-label .hamburger span:nth-child(1){ top:0; }
+.toc-float-label .hamburger span:nth-child(2){ top:6px; }
+.toc-float-label .hamburger span:nth-child(3){ top:12px; }
 .toc-float-label .badge {
-  background: rgba(255,255,255,0.25);
-  border-radius: 20px;
-  padding: 0 10px;
-  font-size: 13px;
-  font-weight: 700;
-}
-/* السهم الصغير بجانب النص */
-.toc-float-label .arrow {
-  display: inline-block;
-  transition: transform 0.3s ease;
-  font-size: 14px;
-}
-/* عند فتح القائمة، يدور السهم */
-.toc-float-checkbox:checked + .toc-float-label .arrow {
-  transform: rotate(180deg);
+  background: rgba(255,255,255,0.28);
+  border-radius: 20px; padding: 1px 10px; font-size: 12.5px; font-weight: 700;
 }
 
-/* على سطح المكتب نخفي الزر العائم (لأن الفهرس مفتوح دائماً) */
+/* عند تفعيل الـ checkbox (القائمة مفتوحة): تحويل الهمبرغر لعلامة × */
+.toc-toggle-checkbox:checked ~ .toc-float .toc-float-label .hamburger span:nth-child(1){
+  top:6px; transform: rotate(45deg);
+}
+.toc-toggle-checkbox:checked ~ .toc-float .toc-float-label .hamburger span:nth-child(2){
+  opacity:0;
+}
+.toc-toggle-checkbox:checked ~ .toc-float .toc-float-label .hamburger span:nth-child(3){
+  top:6px; transform: rotate(-45deg);
+}
+
+/* ================================================================
+   على الديسكتوب: القائمة مفتوحة ومثبتة دائماً، ونخفي الزر العائم
+   ================================================================ */
 @media (min-width:769px) {
-  .toc-float {
-    display: none;
-  }
-  .toc-list-wrap {
-    max-height: 80vh;
-    opacity: 1;
-    margin-top: 12px;
-  }
+  .toc-float { display: none !important; }
+  .toc-list-wrap { max-height: 80vh; opacity: 1; margin-top: 12px; }
 }
 
-/* على الموبايل نضبط ظهور القائمة عبر checkbox العائم */
+/* ================================================================
+   على الموبايل: القائمة بطاقة عائمة (Popup) فوق الزر مباشرة،
+   لا تدفع ولا تغطي محتوى الصفحة، وتُتحكم بالكامل عبر checkbox واحد
+   بدون أي جافاسكريبت.
+   ================================================================ */
 @media (max-width:768px) {
-  .toc-list-wrap {
+  .toc-float { display: flex; }
+
+  .toc-wrap{
+    position: static;
+    background: transparent;
+    box-shadow: none;
+    border: none;
+    padding: 0;
+    margin: 0;
+  }
+  .toc-header{ display: none; }
+
+  .toc-list-wrap{
+    position: fixed;
+    left: 14px;
+    right: 14px;
+    bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+    top: auto;
     max-height: 0;
     opacity: 0;
-    margin-top: 0;
+    margin: 0;
+    padding: 0;
+    background: rgba(255,253,248,0.99);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid rgba(227,220,201,.9);
+    border-radius: 18px;
+    box-shadow: 0 20px 50px rgba(28,37,48,.22), 0 4px 14px rgba(28,37,48,.1);
+    z-index: 998;
+    transform: translateY(14px) scale(.96);
+    transform-origin: bottom left;
+    transition: max-height .38s cubic-bezier(.22,1,.36,1), opacity .28s ease, transform .32s cubic-bezier(.22,1,.36,1);
+    pointer-events: none;
+    overflow: hidden;
   }
-  .toc-toggle-checkbox:checked ~ .toc-list-wrap {
-    max-height: 80vh;
+  .toc-toggle-checkbox:checked ~ .wrap .toc-wrap .toc-list-wrap{
+    max-height: 62vh;
     opacity: 1;
-    margin-top: 10px;
+    transform: translateY(0) scale(1);
+    pointer-events: auto;
+    overflow: visible;
   }
-  /* زر العائم يظهر في الأسفل */
-  .toc-float {
-    display: flex;
+
+  .toc-popup-header{
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    padding: 14px 16px 12px;
+    border-bottom: 1px solid var(--paper-line);
   }
-  /* عند فتح القائمة من الزر العائم، نتحكم في الـ checkbox الداخلي */
-  /* نربط الزر العائم بالـ checkbox الداخلي عبر JavaScript (لأنه في مكان مختلف) */
+  .toc-popup-header .t{
+    display: flex; align-items: center; gap: 8px;
+    font-family:'JetBrains Mono',monospace; font-size:11.5px; font-weight:700;
+    color:var(--brass-dark); text-transform:uppercase; letter-spacing:.1em;
+  }
+  .toc-popup-header .t .dot{ width:7px; height:7px; border-radius:50%; background:var(--brass); flex-shrink:0; }
+  .toc-popup-close{
+    width: 26px; height: 26px; border-radius: 50%;
+    background: var(--paper-alt); color: var(--ink-soft);
+    display:flex; align-items:center; justify-content:center;
+    font-size: 13px; flex-shrink:0;
+    transition: background .2s ease;
+  }
+  .toc-popup-close:active{ background: var(--paper-line); }
+
+  .toc-list{
+    grid-template-columns: repeat(2, 1fr);
+    display: grid;
+    max-height: 48vh;
+    overflow-y: auto;
+    padding: 10px 12px 14px;
+    gap: 6px 8px;
+  }
+  .toc-list::-webkit-scrollbar{ width: 5px; }
+  .toc-list::-webkit-scrollbar-thumb{ background: var(--paper-line); border-radius: 10px; }
+  .toc-list a{ padding: 9px 10px; border-radius: 8px; }
+  .toc-list a .icon{
+    width: 30px; height: 30px; display:flex; align-items:center; justify-content:center;
+    background: var(--brass-glow); border-radius: 8px; font-size: 16px;
+  }
+  .toc-list a .leader{ font-size:10.5px; padding:2px 7px; }
+
+  .toc-backdrop{
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 997;
+    background: rgba(15,15,15,.22);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .3s ease;
+  }
+  .toc-toggle-checkbox:checked ~ .toc-backdrop{
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+@media (max-width:640px){
+  .toc-list{ grid-template-columns: repeat(2, 1fr); gap:6px; }
+  .toc-list a .label{ font-size:13px; }
+  .toc-float-label{ padding:12px 16px; font-size:16px; min-width:52px; min-height:52px; }
 }
 
 /* ---------- باقي الأنماط (الأقسام، البطاقات، الخ) ---------- */
@@ -1517,7 +1602,8 @@ button, .toc-toggle, .image-card, .lightbox-nav, .back-to-top, .toc-list a, .toc
 .lightbox-next{left:20px;}
 
 .back-to-top {
-  position: fixed; bottom: 100px; /* نرفع زر العودة للأعلى قليلاً لعدم التزاحم مع زر الفهرس */
+  position: fixed;
+  bottom: calc(100px + env(safe-area-inset-bottom, 0px));
   left: 30px;
   width: 48px; height: 48px;
   background: var(--brass); color: #fff; border: none; border-radius: 50%;
@@ -1533,7 +1619,7 @@ button, .toc-toggle, .image-card, .lightbox-nav, .back-to-top, .toc-list a, .toc
 @page{ size:A4; margin:16mm 14mm; }
 @media print{
   .watermark-layer{ opacity:.35; }
-  .toc-wrap, .lightbox, .back-to-top, .cover-note, .toc-float{ display:none !important; }
+  .toc-wrap, .lightbox, .back-to-top, .cover-note, .toc-float, .toc-backdrop{ display:none !important; }
   .wrap{ padding: 0; max-width: 100%; }
   .room, .info-card, .color-card, .material-card, .signature-box{ box-shadow:none; break-inside:avoid; page-break-inside: avoid; border: 1px solid #ddd; }
   .image-card:hover, .color-card:hover, .material-card:hover{ transform:none; }
@@ -1547,19 +1633,28 @@ button, .toc-toggle, .image-card, .lightbox-nav, .back-to-top, .toc-list a, .toc
   .wrap{ padding:16px 12px 60px; }
   .images-grid{ grid-template-columns: 1fr; }
   .approval-row{ flex-direction:column; gap:14px; }
-  .toc-wrap{ padding:10px 12px; top:6px; margin:20px 0 12px; }
-  .toc-list{ grid-template-columns:1fr; gap:4px; }
-  .toc-list a{ padding:6px 8px; }
-  .toc-list a .icon{ font-size:16px; }
-  .toc-list a .label{ font-size:13px; }
-  .toc-list a .leader{ font-size:10px; padding:1px 6px; }
-  .toc-title{ font-size:10px; }
-  .toc-float-label{ padding:10px 14px; font-size:16px; min-width:48px; min-height:48px; }
-  .back-to-top { bottom: 90px; left: 20px; width: 42px; height: 42px; font-size:18px; }
+  .back-to-top { bottom: calc(90px + env(safe-area-inset-bottom, 0px)); left: 20px; width: 42px; height: 42px; font-size:18px; }
 }
 </style>
 </head>
 <body>
+
+<!-- المفتاح الوحيد الذي يتحكم في فتح/غلق الفهرس بالكامل عبر CSS فقط،
+     بدون أي اعتماد على الجافاسكريبت. أي label في الصفحة بـ for="tocToggle"
+     (الزر العائم، زر الإغلاق، الخلفية) يفتح ويغلق نفس القائمة. -->
+<input type="checkbox" id="tocToggle" class="toc-toggle-checkbox">
+
+<noscript>
+  <style>
+    /* تنبيه بسيط في أعلى الصفحة لو الجافاسكريبت معطّلة (وضع معاينة) */
+    .js-note{
+      background:#1b2a41; color:#e9d19f; text-align:center; font-size:12.5px;
+      padding:8px 14px; position:relative; z-index:2000;
+    }
+  </style>
+  <div class="js-note">⚠️ الجافاسكريبت معطّلة في وضع العرض هذا — فهرس المحتويات يعمل عادي، لكن تكبير الصور يحتاج فتح الملف داخل متصفح Safari مباشرة (مشاركة ← افتح في Safari).</div>
+</noscript>
+
 <div class="watermark-layer"></div>
 <div class="wrap">
 
@@ -1581,19 +1676,20 @@ button, .toc-toggle, .image-card, .lightbox-nav, .back-to-top, .toc-list a, .toc
     <div class="cover-status ${state.signature.approved ? 'approved' : ''}">${state.signature.approved ? '✓ معتمد من العميل' : '● بانتظار الاعتماد'}</div>
     <div class="cover-note">
       <span>💡</span>
-      <span>يُرجى فتح هذا الملف باستخدام متصفح ويب (مثل Chrome أو Safari) للحصول على أفضل تجربة عرض وتفاعل.</span>
+      <span>يُرجى فتح هذا الملف باستخدام متصفح ويب (مثل Safari أو Chrome) مباشرة، وليس داخل معاينة الملفات، للحصول على أفضل تجربة عرض وتفاعل.</span>
     </div>
   </div>
 
   ${tocLinks.length ? `
   <div class="toc-wrap">
-    <!-- checkbox المخفي الذي يتحكم في ظهور القائمة (مرتبط بالزر العائم عبر JS) -->
-    <input type="checkbox" id="tocToggle" class="toc-toggle-checkbox">
     <div class="toc-header">
       <div class="toc-title">فهرس المحتويات</div>
-      <!-- لم نعد نضع زر هنا، تم نقله للأسفل -->
     </div>
     <div class="toc-list-wrap">
+      <div class="toc-popup-header">
+        <div class="t"><span class="dot"></span>فهرس المحتويات</div>
+        <label for="tocToggle" class="toc-popup-close" aria-label="إغلاق">✕</label>
+      </div>
       <ul class="toc-list">
         ${tocLinks.map((l, li) => `<li><a href="${l.href}"><span class="icon">${l.icon}</span><span class="label">${escapeHtml(l.label)}</span><span class="leader">${String(li + 1).padStart(2, '0')}</span></a></li>`).join('')}
       </ul>
@@ -1685,13 +1781,14 @@ button, .toc-toggle, .image-card, .lightbox-nav, .back-to-top, .toc-list a, .toc
   </div>
 </div>
 
-<!-- زر العائم لفتح/غلق الفهرس (يظهر فقط على الموبايل) -->
+<!-- خلفية شفافة تقفل القائمة عند الضغط خارجها (CSS فقط، تظهر على الموبايل فقط) -->
+<label for="tocToggle" class="toc-backdrop"></label>
+
+<!-- زر عائم لفتح/غلق الفهرس (CSS فقط عبر label، يظهر فقط على الموبايل) -->
 <div class="toc-float">
-  <input type="checkbox" id="tocFloatToggle" class="toc-float-checkbox">
-  <label for="tocFloatToggle" class="toc-float-label">
-    <span>☰</span>
+  <label for="tocToggle" class="toc-float-label">
+    <span class="hamburger"><span></span><span></span><span></span></span>
     <span class="badge">${tocLinks.length}</span>
-    <span class="arrow">▼</span>
   </label>
 </div>
 
@@ -1706,7 +1803,6 @@ button, .toc-toggle, .image-card, .lightbox-nav, .back-to-top, .toc-list a, .toc
 </div>
 
 <script>
-// نفس الكود السابق لـ lightbox والأزرار الأخرى
 const R = ${JSON.stringify(state.rooms.map(r => r.images.map(i => i.dataUrl)))};
 let ci = 0, ii = 0, lbScale = 1;
 
@@ -1737,6 +1833,7 @@ function closeLB() {
 }
 
 function nextImg() {
+  if (!R[ci] || !R[ci].length) return;
   ii = (ii + 1) % R[ci].length; lbScale = 1;
   document.getElementById('lbi').src = R[ci][ii];
   document.getElementById('lbi').style.transform = 'scale(1)';
@@ -1744,6 +1841,7 @@ function nextImg() {
 }
 
 function prevImg() {
+  if (!R[ci] || !R[ci].length) return;
   ii = (ii - 1 + R[ci].length) % R[ci].length; lbScale = 1;
   document.getElementById('lbi').src = R[ci][ii];
   document.getElementById('lbi').style.transform = 'scale(1)';
@@ -1768,7 +1866,7 @@ window.addEventListener('scroll', function() {
   const btn = document.getElementById('htmlBackToTop');
   if (window.scrollY > 400) btn.classList.add('show');
   else btn.classList.remove('show');
-});
+}, { passive: true });
 
 document.addEventListener('keydown', e => {
   if (!document.getElementById('lb').classList.contains('show')) return;
@@ -1777,44 +1875,20 @@ document.addEventListener('keydown', e => {
   else if (e.key === 'ArrowLeft') nextImg();
 });
 
-// حل إضافي لـ iOS (تنشيط الأحداث)
-document.addEventListener('touchstart', function(){}, {passive: true});
+document.addEventListener('touchstart', function(){}, { passive: true });
 
-// ربط الزر العائم بـ checkbox الداخلي لتوحيد الحالة
+// تحسين اختياري فقط (ليس ضرورياً): إغلاق القائمة تلقائياً بعد اختيار رابط
+// على الموبايل. القائمة نفسها تعمل بالكامل بدون هذا الكود.
 document.addEventListener('DOMContentLoaded', function() {
-  const floatChk = document.getElementById('tocFloatToggle');
-  const innerChk = document.getElementById('tocToggle');
-  if (floatChk && innerChk) {
-    // عند تغيير الزر العائم، نغير الداخلي
-    floatChk.addEventListener('change', function() {
-      innerChk.checked = this.checked;
+  const tocToggle = document.getElementById('tocToggle');
+  const tocLinksEls = document.querySelectorAll('.toc-list a');
+  if (tocToggle && tocLinksEls.length) {
+    tocLinksEls.forEach(a => {
+      a.addEventListener('click', function() {
+        if (window.innerWidth <= 768) tocToggle.checked = false;
+      });
     });
-    // عند تغيير الداخلي (قد يحدث من أي مصدر آخر) نعدل العائم
-    innerChk.addEventListener('change', function() {
-      floatChk.checked = this.checked;
-    });
-    // ضبط الحالة الابتدائية حسب حجم الشاشة
-    if (window.innerWidth > 768) {
-      innerChk.checked = true;
-      floatChk.checked = true;
-    } else {
-      innerChk.checked = false;
-      floatChk.checked = false;
-    }
   }
-});
-
-// عند تغيير حجم النافذة نضبط الحالة الابتدائية (فقط إذا كانت الحجم كبيراً)
-window.addEventListener('resize', function() {
-  const innerChk = document.getElementById('tocToggle');
-  const floatChk = document.getElementById('tocFloatToggle');
-  if (window.innerWidth > 768) {
-    if (innerChk && !innerChk.checked) {
-      innerChk.checked = true;
-      if (floatChk) floatChk.checked = true;
-    }
-  }
-  // لا نجبر على false لأن المستخدم قد يكون فتحها يدوياً
 });
 </script>
 </body>
