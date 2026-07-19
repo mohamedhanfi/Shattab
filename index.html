@@ -42,7 +42,6 @@
         <small id="projectSubtitle">بدون اسم مشروع بعد</small>
       </div>
 
-      <!-- زر مشروع جديد (جديد) -->
       <div class="sidebar-actions no-print">
         <button class="btn-new-project" id="newProjectSidebarBtn" data-i18n="new-project-sidebar">+ مشروع جديد</button>
       </div>
@@ -109,7 +108,7 @@
     </div>
   </div>
 
-  <!-- نافذة اختيار المشروع عند سحب الغرفة (جديدة) -->
+  <!-- نافذة اختيار المشروع عند سحب الغرفة -->
   <div class="confirm-overlay no-print" id="moveRoomOverlay">
     <div class="confirm-box">
       <div class="confirm-icon">📦</div>
@@ -132,7 +131,10 @@
       <img id="lightboxImg" alt="صورة مكبرة" draggable="false">
     </div>
     <button class="lightbox-nav lightbox-next" id="lightboxNext" aria-label="الصورة التالية">›</button>
+    <!-- زر الشاشة الكاملة -->
     <button class="lightbox-fullscreen" id="lightboxFullscreen" title="شاشة كاملة" aria-label="شاشة كاملة">⛶</button>
+    <!-- زر تحميل الصورة (جديد) -->
+    <button class="lightbox-download" id="lightboxDownload" title="تحميل الصورة" aria-label="تحميل الصورة">⬇</button>
     <div class="lightbox-hint mono" data-i18n="lightbox-hint">اسحب للتكبير أو استخدم الأسهم للتنقل — Esc للإغلاق</div>
   </div>
 
@@ -149,13 +151,16 @@
     <span class="status-text"></span>
   </div>
 
-  <!-- نافذة إدارة المشاريع -->
+  <!-- نافذة إدارة المشاريع (محسّنة) -->
   <div class="project-manager-overlay no-print" id="projectManagerOverlay">
     <div class="project-manager-box">
       <h2 data-i18n="manage-projects-title">📁 إدارة المشاريع</h2>
+      <!-- حقل بحث المشاريع (جديد) -->
+      <div class="project-search">
+        <input type="text" id="projectSearchInput" placeholder="ابحث عن مشروع..." data-i18n-placeholder="search-projects">
+      </div>
       <div class="project-list" id="projectList"></div>
       <div class="project-manager-actions">
-        <!-- تم إزالة زر + مشروع جديد -->
         <button class="btn btn-outline" id="closeProjectManagerBtn" data-i18n="close">إغلاق</button>
       </div>
     </div>
