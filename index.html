@@ -6,6 +6,7 @@
   <meta name="description" content="شطّب — دفتر مرجع التصميم لتوثيق اختيارات التشطيب والديكور قبل التنفيذ: الغرف، الصور المرجعية، الألوان، الخامات، واعتماد العميل.">
   <meta name="theme-color" content="#1b2a41">
   <title>شطّب — دفتر مرجع التصميم</title>
+  <link rel="icon" id="dynamicFavicon" href="">
   
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -87,6 +88,21 @@
       </div>
     </div>
   </div>
+
+  <div class="confirm-overlay no-print" id="addRoomOverlay">
+    <div class="confirm-box">
+      <div class="confirm-icon">🏠</div>
+      <div class="confirm-title">إضافة غرفة جديدة</div>
+      <div class="confirm-msg">اكتب اسم الغرفة التي تريد إضافتها إلى المشروع.</div>
+      <input type="text" id="addRoomInput" class="confirm-input" placeholder="مثال: غرفة الضيوف" maxlength="60">
+      <div class="confirm-actions">
+        <button class="btn btn-outline" id="addRoomCancelBtn">إلغاء</button>
+        <button class="btn btn-primary" id="addRoomOkBtn">+ إضافة الغرفة</button>
+      </div>
+    </div>
+  </div>
+
+  <button class="focus-exit-btn no-print" id="focusExitBtn" title="الخروج من وضع التركيز" aria-label="الخروج من وضع التركيز">✕ إنهاء وضع التركيز</button>
 
   <div class="lightbox no-print" id="lightbox" role="dialog" aria-modal="true" aria-label="عارض الصور">
     <button class="lightbox-close" id="lightboxClose" aria-label="إغلاق">✕</button>

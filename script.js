@@ -38,6 +38,7 @@ function loadFromLocalStorage() {
       if (loaded.colors) state.colors = loaded.colors;
       if (loaded.materials) state.materials = loaded.materials;
       if (loaded.signature) Object.assign(state.signature, loaded.signature);
+      migrateLegacyGlobalData();
       renderAll();
     }
   } catch (err) {
@@ -101,7 +102,39 @@ const state = {
 };
 
 function mkRoom(name) {
-  return { id: newId(), name, images: [], notes: '' };
+  return {
+    id: newId(), name, images: [], notes: '',
+    colors: [], materials: [],
+    openSections: { data: true, materials: false, colors: false }
+  };
+}
+
+// يضمن أن كل غرفة (حتى القادمة من نسخة JSON قديمة) فيها كل الحقول الجديدة
+function ensureRoomDefaults(room) {
+  if (!Array.isArray(room.colors)) room.colors = [];
+  if (!Array.isArray(room.materials)) room.materials = [];
+  if (!room.openSections) room.openSections = { data: true, materials: false, colors: false };
+  return room;
+}
+
+// ترحيل البيانات القديمة: نقل الألوان والخامات العامة (لو موجودة من نسخة قديمة)
+// إلى داخل الغرف بدلاً من قسمين عامّين منفصلين — بدون فقد أي بيانات قديمة.
+function migrateLegacyGlobalData() {
+  state.rooms.forEach(ensureRoomDefaults);
+
+  if (Array.isArray(state.materials) && state.materials.length) {
+    state.materials.forEach(m => {
+      const target = state.rooms.find(r => r.id === m.roomId) || state.rooms[0];
+      if (target) target.materials.push(m);
+    });
+    state.materials = [];
+  }
+
+  if (Array.isArray(state.colors) && state.colors.length) {
+    const target = state.rooms[0];
+    if (target) target.colors.push(...state.colors);
+    state.colors = [];
+  }
 }
 
 let currentTab = 'project';
@@ -147,8 +180,6 @@ function renderSidebar() {
 
   const navEnd = document.getElementById('navEnd');
   navEnd.innerHTML = '';
-  navEnd.appendChild(navItem('colors', 'الألوان والدهانات', 'colors', currentTab === 'colors', state.colors.length));
-  navEnd.appendChild(navItem('materials', 'المواد والخامات', 'materials', currentTab === 'materials', state.materials.length));
   navEnd.appendChild(navItem('signature', 'اعتماد التصميم', 'signature', currentTab === 'signature'));
   
   updateProgress();
@@ -219,8 +250,6 @@ function navItem(iconKey, label, tabKey, active, count) {
 
 const TAB_LABELS = {
   project: 'بيانات المشروع',
-  colors: 'الألوان والدهانات',
-  materials: 'المواد والخامات',
   signature: 'اعتماد التصميم'
 };
 
@@ -238,9 +267,26 @@ function renderBreadcrumb() {
 /* --------------------------------------------------------------------------
 9. عرض كل شيء
 -------------------------------------------------------------------------- */
+/* --------------------------------------------------------------------------
+9ب. أيقونة متغيرة (Favicon) حسب حالة اعتماد المشروع
+-------------------------------------------------------------------------- */
+function updateFavicon() {
+  const link = document.getElementById('dynamicFavicon');
+  if (!link) return;
+  const approved = state.signature.approved;
+  const bgColor = approved ? '#4a7c59' : '#1e3a5f';
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+    <rect width="64" height="64" rx="14" fill="${bgColor}"/>
+    <text x="32" y="43" font-family="Tajawal, Arial, sans-serif" font-size="30" font-weight="900" fill="#f5f1e8" text-anchor="middle">ش</text>
+    ${approved ? '<circle cx="50" cy="14" r="12" fill="#c49a6c"/><path d="M44 14l4 4 8-8" stroke="#1a2332" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>' : ''}
+  </svg>`;
+  link.href = 'data:image/svg+xml,' + encodeURIComponent(svg);
+}
+
 function renderAll() {
   renderSidebar();
   renderBreadcrumb();
+  updateFavicon();
   const main = document.getElementById('mainContent');
   main.innerHTML = '';
   
@@ -249,8 +295,6 @@ function renderAll() {
   main.style.transform = 'translateY(10px)';
   
   if (currentTab === 'project') main.appendChild(renderProjectSheet());
-  else if (currentTab === 'colors') main.appendChild(renderColorsSheet());
-  else if (currentTab === 'materials') main.appendChild(renderMaterialsSheet());
   else if (currentTab === 'signature') main.appendChild(renderSignatureSheet());
   else {
     const room = state.rooms.find(r => r.id === currentTab);
@@ -291,7 +335,15 @@ function renderProjectSheet() {
       <div class="field"><label class="field-label">اسم المهندس / المصمم</label><input type="text" id="pEngineer" placeholder="اسمك"></div>
       <div class="field"><label class="field-label">التاريخ</label><input type="date" id="pDate"></div>
     </div>
-    <div class="summary-grid" id="projectSummary"></div>`;
+    <div class="summary-grid" id="projectSummary"></div>
+    <div class="rooms-overview-head">
+      <h3 class="section-label" style="margin:0;border:none;padding:0;">الغرف (${state.rooms.length})</h3>
+      <div class="view-toggle no-print" id="roomViewToggle">
+        <button type="button" data-view="grid">▦ شبكة</button>
+        <button type="button" data-view="list">☰ قائمة</button>
+      </div>
+    </div>
+    <div class="rooms-overview" id="roomsOverview"></div>`;
   
   body.querySelector('#pName').value = state.project.name;
   body.querySelector('#pClient').value = state.project.client;
@@ -305,11 +357,13 @@ function renderProjectSheet() {
 
   const summary = body.querySelector('#projectSummary');
   const totalImgs = state.rooms.reduce((s, r) => s + r.images.length, 0);
+  const totalColors = state.rooms.reduce((s, r) => s + r.colors.length, 0);
+  const totalMaterials = state.rooms.reduce((s, r) => s + r.materials.length, 0);
   [
     ['عدد الغرف', state.rooms.length],
     ['إجمالي الصور', totalImgs],
-    ['عدد الألوان', state.colors.length],
-    ['عدد الخامات', state.materials.length],
+    ['عدد الألوان', totalColors],
+    ['عدد الخامات', totalMaterials],
     ['حالة الاعتماد', state.signature.approved ? 'معتمد ✓' : 'بانتظار التوقيع']
   ].forEach(([l, n]) => {
     const c = document.createElement('div');
@@ -317,24 +371,128 @@ function renderProjectSheet() {
     c.innerHTML = `<div class="n mono">${n}</div><div class="l">${l}</div>`;
     summary.appendChild(c);
   });
+
+  renderRoomsOverview(body.querySelector('#roomsOverview'));
+  const vt = body.querySelector('#roomViewToggle');
+  const savedView = localStorage.getItem('roomsViewMode') || 'grid';
+  vt.querySelectorAll('button').forEach(b => {
+    b.classList.toggle('active', b.dataset.view === savedView);
+    b.onclick = () => {
+      localStorage.setItem('roomsViewMode', b.dataset.view);
+      vt.querySelectorAll('button').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+      renderRoomsOverview(body.querySelector('#roomsOverview'));
+    };
+  });
   
   return sheetShell('A-100', 'بيانات المشروع', 'صفحة الغلاف', body);
+}
+
+/* --------------------------------------------------------------------------
+10ب. بطاقات الغرف (عرض شبكة/قائمة) في الصفحة الرئيسية
+-------------------------------------------------------------------------- */
+function renderRoomsOverview(container) {
+  if (!container) return;
+  const view = localStorage.getItem('roomsViewMode') || 'grid';
+  container.className = 'rooms-overview' + (view === 'list' ? ' list-view' : '');
+  container.innerHTML = '';
+
+  if (!state.rooms.length) {
+    const em = document.createElement('div');
+    em.className = 'empty-note';
+    em.textContent = 'لا توجد غرف بعد — أضف غرفة من القائمة الجانبية.';
+    container.appendChild(em);
+    return;
+  }
+
+  state.rooms.forEach(room => {
+    const card = document.createElement('div');
+    card.className = 'room-overview-card';
+    const thumbImg = room.images[0];
+    card.innerHTML = `
+      <div class="room-overview-thumb">
+        ${thumbImg ? `<img src="${thumbImg.dataUrl}" alt="${escapeAttr(room.name)}" loading="lazy">` : `<span class="placeholder-icon">🏠</span>`}
+      </div>
+      <div class="room-overview-info">
+        <div class="name">${escapeHtml(room.name)}</div>
+        <div class="meta">
+          <span>🖼 ${room.images.length} صورة</span>
+          <span>🎨 ${room.colors.length} لون</span>
+          <span>🧱 ${room.materials.length} خامة</span>
+        </div>
+      </div>`;
+    card.onclick = () => { currentTab = room.id; renderAll(); };
+    container.appendChild(card);
+  });
 }
 
 /* --------------------------------------------------------------------------
 11. صفحة الغرفة
 -------------------------------------------------------------------------- */
 function renderRoomSheet(room) {
+  ensureRoomDefaults(room);
   const idx = state.rooms.indexOf(room);
   const body = document.createElement('div');
+
+  const accordion = document.createElement('div');
+  accordion.className = 'room-accordion';
+
+  accordion.appendChild(accordionSection(room, 'data', '🏠 بيانات الغرفة', room.images.length, renderRoomDataSection(room, idx)));
+  accordion.appendChild(accordionSection(room, 'materials', '🧱 المواد والخامات', room.materials.length, renderRoomMaterialsSection(room)));
+  accordion.appendChild(accordionSection(room, 'colors', '🎨 الألوان والدهانات', room.colors.length, renderRoomColorsSection(room)));
+
+  body.appendChild(accordion);
   
+  return sheetShell(sheetTagForRoom(idx), room.name, 'مرجع الصور والخامات والألوان', body);
+}
+
+/* --------------------------------------------------------------------------
+11ب. بناء قسم أكورديون قابل للفتح والطي
+-------------------------------------------------------------------------- */
+function accordionSection(room, key, title, count, bodyEl) {
+  const sec = document.createElement('div');
+  const isOpen = !!room.openSections[key];
+  sec.className = 'accordion-section' + (isOpen ? ' open' : '');
+
+  const headerBtn = document.createElement('button');
+  headerBtn.type = 'button';
+  headerBtn.className = 'accordion-header';
+  headerBtn.setAttribute('aria-expanded', String(isOpen));
+  headerBtn.innerHTML = `
+    <span class="accordion-title">${title}<span class="accordion-count mono">${count}</span></span>
+    <span class="accordion-arrow">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+    </span>`;
+
+  const bodyWrap = document.createElement('div');
+  bodyWrap.className = 'accordion-body';
+  bodyWrap.appendChild(bodyEl);
+
+  headerBtn.onclick = () => {
+    room.openSections[key] = !room.openSections[key];
+    sec.classList.toggle('open', room.openSections[key]);
+    headerBtn.setAttribute('aria-expanded', String(room.openSections[key]));
+    saveToLocalStorage();
+  };
+
+  sec.appendChild(headerBtn);
+  sec.appendChild(bodyWrap);
+  return sec;
+}
+
+/* --------------------------------------------------------------------------
+11ج. قسم "بيانات الغرفة": الاسم/الحذف + الصور + الملاحظات
+-------------------------------------------------------------------------- */
+function renderRoomDataSection(room, idx) {
+  const body = document.createElement('div');
+
   body.appendChild(header(room, idx));
-  
+
   const st = document.createElement('h3');
   st.className = 'section-label';
   st.textContent = `الصور المرجعية (${room.images.length})`;
   body.appendChild(st);
-  
+
   const dz = document.createElement('div');
   dz.className = 'dropzone no-print';
   dz.innerHTML = `<strong>اضغط هنا لرفع صور ${escapeHtml(room.name)}</strong><div class="hint">أو اسحب الصور وأفلتها هنا</div>`;
@@ -344,13 +502,13 @@ function renderRoomSheet(room) {
   fi.multiple = true;
   dz.appendChild(fi);
   dz.onclick = () => fi.click();
-  
+
   ['dragover', 'dragenter'].forEach(e => dz.addEventListener(e, ev => { ev.preventDefault(); dz.classList.add('drag'); }));
   ['dragleave', 'drop'].forEach(e => dz.addEventListener(e, ev => { ev.preventDefault(); dz.classList.remove('drag'); }));
   dz.addEventListener('drop', e => handleFiles(room, e.dataTransfer.files));
   fi.onchange = e => handleFiles(room, e.target.files);
   body.appendChild(dz);
-  
+
   if (!room.images.length) {
     const em = document.createElement('div');
     em.className = 'empty-note';
@@ -362,7 +520,7 @@ function renderRoomSheet(room) {
     room.images.forEach((img, i) => strip.appendChild(imageCard(room, img, i)));
     body.appendChild(strip);
   }
-  
+
   const nw = document.createElement('div');
   nw.style.marginTop = '28px';
   nw.style.paddingTop = '20px';
@@ -377,8 +535,8 @@ function renderRoomSheet(room) {
   na.oninput = e => { room.notes = e.target.value; saveToLocalStorage(); };
   nw.appendChild(na);
   body.appendChild(nw);
-  
-  return sheetShell(sheetTagForRoom(idx), room.name, 'مرجع الصور والملاحظات', body);
+
+  return body;
 }
 
 /* --------------------------------------------------------------------------
@@ -585,76 +743,72 @@ function readFileAsDataURL(file) {
 /* --------------------------------------------------------------------------
 15. صفحة الألوان مع البحث
 -------------------------------------------------------------------------- */
-function renderColorsSheet() {
+function renderRoomColorsSection(room) {
   const body = document.createElement('div');
   
   const t1 = document.createElement('h3');
   t1.className = 'section-label';
-  t1.textContent = 'إضافة لون / دهان جديد';
+  t1.textContent = `إضافة لون / دهان جديد لـ ${room.name}`;
   body.appendChild(t1);
   
   const ar = document.createElement('div');
   ar.className = 'color-add-row';
-  ar.innerHTML = `<div><label class="field-label">اللون</label><input type="color" class="swatch-input" id="newColorHex" value="#a85c3f"></div>
-    <div style="flex:1;min-width:180px;"><label class="field-label">اسم / وصف اللون</label><input type="text" id="newColorName" placeholder="مثال: دهان جدران"></div>
-    <button class="btn btn-brass" id="addColorBtn">+ إضافة</button>`;
+  ar.innerHTML = `<div><label class="field-label">اللون</label><input type="color" class="swatch-input" id="newColorHex-${room.id}" value="#a85c3f"></div>
+    <div style="flex:1;min-width:180px;"><label class="field-label">اسم / وصف اللون</label><input type="text" id="newColorName-${room.id}" placeholder="مثال: دهان جدران"></div>
+    <button class="btn btn-brass" id="addColorBtn-${room.id}">+ إضافة</button>`;
   body.appendChild(ar);
   
   const sr = document.createElement('div');
   sr.style.cssText = 'margin:20px 0 14px;display:flex;gap:10px;align-items:center;';
-  sr.innerHTML = `<div style="flex:1;"><label class="field-label">البحث عن لون</label><input type="text" id="colorSearch" placeholder="ابحث بالاسم أو الكود" style="padding:10px 12px;"></div>
-    <button class="btn btn-outline" id="clearColorSearch" style="margin-top:20px;">مسح</button>`;
+  sr.innerHTML = `<div style="flex:1;"><label class="field-label">البحث عن لون</label><input type="text" id="colorSearch-${room.id}" placeholder="ابحث بالاسم أو الكود" style="padding:10px 12px;"></div>
+    <button class="btn btn-outline" id="clearColorSearch-${room.id}" style="margin-top:20px;">مسح</button>`;
   body.appendChild(sr);
   
   const t2 = document.createElement('h3');
   t2.className = 'section-label';
   t2.style.marginTop = '22px';
-  t2.textContent = `الألوان المختارة (${state.colors.length})`;
+  t2.textContent = `الألوان المختارة (${room.colors.length})`;
   body.appendChild(t2);
   
-  if (!state.colors.length) {
-    const em = document.createElement('div');
-    em.className = 'empty-note';
-    em.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:48px;height:48px;margin-bottom:12px;opacity:0.4;"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg><br>لا توجد ألوان مضافة بعد.`;
-    body.appendChild(em);
-  } else {
-    const list = document.createElement('div');
-    list.className = 'color-list';
-    list.id = 'colorList';
-    state.colors.forEach((c, i) => list.appendChild(colorCard(c, i)));
-    body.appendChild(list);
-  }
+  const list = document.createElement('div');
+  list.className = 'color-list';
+  list.id = 'colorList-' + room.id;
+  body.appendChild(list);
+  renderColorList(room, list, '');
   
-  body.querySelector('#addColorBtn').onclick = () => {
-    const hex = body.querySelector('#newColorHex').value;
-    const name = body.querySelector('#newColorName').value.trim();
+  body.querySelector('#addColorBtn-' + room.id).onclick = () => {
+    const hex = body.querySelector('#newColorHex-' + room.id).value;
+    const name = body.querySelector('#newColorName-' + room.id).value.trim();
     if (!name) { showToast('اكتب اسم اللون', 'error'); return; }
-    state.colors.push({ id: newId(), hex, name, note: '' });
+    room.colors.push({ id: newId(), hex, name, note: '' });
     renderAll();
     saveToLocalStorage();
     showToast('تمت إضافة اللون', 'success');
   };
   
-  const si = body.querySelector('#colorSearch');
-  const cb = body.querySelector('#clearColorSearch');
-  si.oninput = () => filterColors(si.value);
-  cb.onclick = () => { si.value = ''; filterColors(''); };
+  const si = body.querySelector('#colorSearch-' + room.id);
+  const cb = body.querySelector('#clearColorSearch-' + room.id);
+  si.oninput = () => renderColorList(room, list, si.value);
+  cb.onclick = () => { si.value = ''; renderColorList(room, list, ''); };
   
-  return sheetShell('A-900', 'الألوان والدهانات', 'مرجع الألوان', body);
+  return body;
 }
 
-function filterColors(query) {
-  const list = document.getElementById('colorList');
-  if (!list) return;
-  const q = query.toLowerCase().trim();
+function renderColorList(room, list, query) {
   list.innerHTML = '';
-  state.colors.forEach((c, i) => {
-    if (q === '' || c.name.toLowerCase().includes(q) || c.hex.toLowerCase().includes(q))
-      list.appendChild(colorCard(c, i));
-  });
+  const q = query.toLowerCase().trim();
+  const matches = room.colors.filter(c => q === '' || c.name.toLowerCase().includes(q) || c.hex.toLowerCase().includes(q));
+  if (!room.colors.length) {
+    const em = document.createElement('div');
+    em.className = 'empty-note';
+    em.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:48px;height:48px;margin-bottom:12px;opacity:0.4;"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg><br>لا توجد ألوان مضافة بعد لهذه الغرفة.`;
+    list.appendChild(em);
+    return;
+  }
+  matches.forEach(c => list.appendChild(colorCard(room, c, room.colors.indexOf(c))));
 }
 
-function colorCard(c, i) {
+function colorCard(room, c, i) {
   const card = document.createElement('div');
   card.className = 'color-card';
   card.style.cssText = 'transition:all 0.3s ease;';
@@ -665,13 +819,15 @@ function colorCard(c, i) {
     <div class="color-fields">
       <input type="text" value="${escapeAttr(c.name)}" placeholder="اسم اللون" style="font-size:15px;font-weight:600;margin-bottom:8px;">
       <div class="color-hex-row">
-        <button type="button" class="color-hex mono" onclick="copyHex('${c.hex}',this)" aria-label="نسخ كود اللون ${c.hex}">${c.hex} — انسخ</button>
+        <button type="button" class="color-hex mono" data-hex="${c.hex}" aria-label="نسخ كود اللون ${c.hex}">${c.hex} — انسخ</button>
       </div>
       <textarea placeholder="ملاحظات...">${escapeHtml(c.note)}</textarea>
     </div>
-    <button class="delete-btn" onclick="deleteColor(${i})">حذف هذا اللون</button>`;
+    <button class="delete-btn">حذف هذا اللون</button>`;
   card.querySelector('input[type=text]').oninput = e => { c.name = e.target.value; saveToLocalStorage(); };
   card.querySelector('textarea').oninput = e => { c.note = e.target.value; saveToLocalStorage(); };
+  card.querySelector('.color-hex').onclick = e => copyHex(c.hex, e.currentTarget);
+  card.querySelector('.delete-btn').onclick = () => deleteColor(room, c.id);
   return card;
 }
 
@@ -683,10 +839,11 @@ function copyHex(hex, el) {
   });
 }
 
-async function deleteColor(i) {
+async function deleteColor(room, colorId) {
   const ok = await showConfirm({ title: 'حذف اللون؟', message: 'لا يمكن التراجع عن هذا الإجراء.', confirmLabel: 'حذف', icon: '🎨' });
   if (ok) {
-    state.colors.splice(i, 1);
+    const i = room.colors.findIndex(c => c.id === colorId);
+    if (i !== -1) room.colors.splice(i, 1);
     renderAll();
     saveToLocalStorage();
     showToast('تم الحذف', 'info');
@@ -696,60 +853,49 @@ async function deleteColor(i) {
 /* --------------------------------------------------------------------------
 16. صفحة المواد والخامات (مع ربط الغرف ومعاينة الصور)
 -------------------------------------------------------------------------- */
-function renderMaterialsSheet() {
+function renderRoomMaterialsSection(room) {
   const body = document.createElement('div');
   
   const t1 = document.createElement('h3');
   t1.className = 'section-label';
-  t1.textContent = 'إضافة مادة / خامة جديدة';
+  t1.textContent = `إضافة مادة / خامة جديدة لـ ${room.name}`;
   body.appendChild(t1);
-  
-  const roomsOpts = state.rooms.map(r => `<option value="${r.id}">${escapeHtml(r.name)}</option>`).join('');
   
   const ar = document.createElement('div');
   ar.className = 'color-add-row';
   ar.style.cssText = 'flex-wrap:wrap;gap:12px;';
   ar.innerHTML = `
-    <div style="flex:1;min-width:200px;"><label class="field-label">اسم الخامة</label><input type="text" id="newMatName" placeholder="مثال: سيراميك بورسلان أبيض"></div>
-    <div style="flex:1;min-width:150px;"><label class="field-label">نوع الخامة</label><select id="newMatType" style="width:100%;padding:10px 12px;border:1px solid var(--paper-line);border-radius:var(--radius);background:var(--input-bg);font-family:inherit;font-size:14px;"><option value="أرضيات">أرضيات</option><option value="جدران">جدران</option><option value="أسقف">أسقف</option><option value="إكسسوارات">إكسسوارات</option><option value="أثاث">أثاث</option><option value="إضاءة">إضاءة</option><option value="أخرى">أخرى</option></select></div>
-    <div style="flex:1;min-width:150px;"><label class="field-label">الغرفة</label><select id="newMatRoom" style="width:100%;padding:10px 12px;border:1px solid var(--paper-line);border-radius:var(--radius);background:var(--input-bg);font-family:inherit;font-size:14px;"><option value="">-- اختر الغرفة --</option>${roomsOpts}</select></div>
-    <div style="flex:1;min-width:150px;"><label class="field-label">الكود / الموديل</label><input type="text" id="newMatCode" placeholder="مثال: SK-2024-001"></div>
-    <div style="flex:1;min-width:200px;"><label class="field-label">صورة الخامة</label><div id="matImageDropzone" style="border:2px dashed var(--paper-line);border-radius:var(--radius);padding:12px;text-align:center;cursor:pointer;background:var(--empty-bg);transition:all 0.2s;position:relative;"><span id="matImageLabel" style="color:var(--ink-soft);font-size:13px;"> اضغط لاختيار صورة</span><input type="file" id="newMatImage" accept="image/*" style="display:block !important;width:100%;height:100%;opacity:0;position:absolute;top:0;left:0;cursor:pointer;"></div><img id="matImagePreview" style="max-width:100%;max-height:100px;margin-top:8px;border-radius:4px;display:none;border:1px solid var(--paper-line);cursor:pointer;" title="اضغط للمعاينة"></div>
-    <button class="btn btn-brass" id="addMatBtn" style="margin-top:20px;">+ إضافة الخامة</button>`;
+    <div style="flex:1;min-width:200px;"><label class="field-label">اسم الخامة</label><input type="text" id="newMatName-${room.id}" placeholder="مثال: سيراميك بورسلان أبيض"></div>
+    <div style="flex:1;min-width:150px;"><label class="field-label">نوع الخامة</label><select id="newMatType-${room.id}" style="width:100%;padding:10px 12px;border:1px solid var(--paper-line);border-radius:var(--radius);background:var(--input-bg);font-family:inherit;font-size:14px;"><option value="أرضيات">أرضيات</option><option value="جدران">جدران</option><option value="أسقف">أسقف</option><option value="إكسسوارات">إكسسوارات</option><option value="أثاث">أثاث</option><option value="إضاءة">إضاءة</option><option value="أخرى">أخرى</option></select></div>
+    <div style="flex:1;min-width:150px;"><label class="field-label">الكود / الموديل</label><input type="text" id="newMatCode-${room.id}" placeholder="مثال: SK-2024-001"></div>
+    <div style="flex:1;min-width:200px;"><label class="field-label">صورة الخامة</label><div id="matImageDropzone-${room.id}" style="border:2px dashed var(--paper-line);border-radius:var(--radius);padding:12px;text-align:center;cursor:pointer;background:var(--empty-bg);transition:all 0.2s;position:relative;"><span id="matImageLabel-${room.id}" style="color:var(--ink-soft);font-size:13px;"> اضغط لاختيار صورة</span><input type="file" id="newMatImage-${room.id}" accept="image/*" style="display:block !important;width:100%;height:100%;opacity:0;position:absolute;top:0;left:0;cursor:pointer;"></div><img id="matImagePreview-${room.id}" style="max-width:100%;max-height:100px;margin-top:8px;border-radius:4px;display:none;border:1px solid var(--paper-line);cursor:pointer;" title="اضغط للمعاينة"></div>
+    <button class="btn btn-brass" id="addMatBtn-${room.id}" style="margin-top:20px;">+ إضافة الخامة</button>`;
   body.appendChild(ar);
   
   const fr = document.createElement('div');
   fr.style.cssText = 'margin:20px 0 14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;';
   fr.innerHTML = `
-    <div style="flex:1;min-width:200px;"><label class="field-label">البحث</label><input type="text" id="matSearch" placeholder="ابحث بالاسم أو الكود" style="padding:10px 12px;"></div>
-    <div style="min-width:150px;"><label class="field-label">تصفية حسب الغرفة</label><select id="matRoomFilter" style="width:100%;padding:10px 12px;border:1px solid var(--paper-line);border-radius:var(--radius);background:var(--input-bg);font-family:inherit;font-size:14px;"><option value="">كل الغرف</option>${roomsOpts}</select></div>
-    <button class="btn btn-outline" id="clearMatSearch" style="margin-top:20px;">مسح</button>`;
+    <div style="flex:1;min-width:200px;"><label class="field-label">البحث</label><input type="text" id="matSearch-${room.id}" placeholder="ابحث بالاسم أو الكود" style="padding:10px 12px;"></div>
+    <button class="btn btn-outline" id="clearMatSearch-${room.id}" style="margin-top:20px;">مسح</button>`;
   body.appendChild(fr);
   
   const t2 = document.createElement('h3');
   t2.className = 'section-label';
   t2.style.marginTop = '22px';
-  t2.textContent = `الخامات المختارة (${state.materials.length})`;
+  t2.textContent = `الخامات المختارة (${room.materials.length})`;
   body.appendChild(t2);
   
-  if (!state.materials.length) {
-    const em = document.createElement('div');
-    em.className = 'empty-note';
-    em.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:48px;height:48px;margin-bottom:12px;opacity:0.4;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg><br>لا توجد خامات مضافة بعد.`;
-    body.appendChild(em);
-  } else {
-    const list = document.createElement('div');
-    list.className = 'color-list';
-    list.id = 'materialList';
-    list.style.gridTemplateColumns = 'repeat(auto-fill,minmax(300px,1fr))';
-    state.materials.forEach((m, i) => list.appendChild(materialCard(m, i)));
-    body.appendChild(list);
-  }
+  const list = document.createElement('div');
+  list.className = 'color-list';
+  list.id = 'materialList-' + room.id;
+  list.style.gridTemplateColumns = 'repeat(auto-fill,minmax(300px,1fr))';
+  body.appendChild(list);
+  renderMaterialList(room, list, '');
   
-  const mii = body.querySelector('#newMatImage');
-  const mip = body.querySelector('#matImagePreview');
-  const mil = body.querySelector('#matImageLabel');
-  const mid = body.querySelector('#matImageDropzone');
+  const mii = body.querySelector('#newMatImage-' + room.id);
+  const mip = body.querySelector('#matImagePreview-' + room.id);
+  const mil = body.querySelector('#matImageLabel-' + room.id);
+  const mid = body.querySelector('#matImageDropzone-' + room.id);
   
   mid.addEventListener('dragover', e => { e.preventDefault(); mid.style.borderColor = 'var(--brass)'; mid.style.background = 'rgba(184,134,62,0.1)'; });
   mid.addEventListener('dragleave', e => { e.preventDefault(); mid.style.borderColor = 'var(--paper-line)'; mid.style.background = 'var(--empty-bg)'; });
@@ -777,11 +923,10 @@ function renderMaterialsSheet() {
     }
   }
   
-  body.querySelector('#addMatBtn').onclick = async () => {
-    const name = body.querySelector('#newMatName').value.trim();
-    const type = body.querySelector('#newMatType').value;
-    const roomId = body.querySelector('#newMatRoom').value;
-    const code = body.querySelector('#newMatCode').value.trim();
+  body.querySelector('#addMatBtn-' + room.id).onclick = async () => {
+    const name = body.querySelector('#newMatName-' + room.id).value.trim();
+    const type = body.querySelector('#newMatType-' + room.id).value;
+    const code = body.querySelector('#newMatCode-' + room.id).value.trim();
     const imgF = mii.files[0];
     
     if (!name) { showToast('اكتب اسم الخامة', 'error'); return; }
@@ -789,49 +934,41 @@ function renderMaterialsSheet() {
     let imgD = '';
     if (imgF) try { imgD = await compressImageSmart(imgF, 1600, 0.85); } catch (e) { }
     
-    state.materials.push({ id: newId(), name, type, roomId, code, image: imgD, note: '' });
-    
-    body.querySelector('#newMatName').value = '';
-    body.querySelector('#newMatCode').value = '';
-    body.querySelector('#newMatRoom').value = '';
-    mii.value = '';
-    mip.style.display = 'none';
-    mil.textContent = '📷 اضغط لاختيار صورة';
+    room.materials.push({ id: newId(), name, type, roomId: room.id, code, image: imgD, note: '' });
     
     renderAll();
     saveToLocalStorage();
     showToast('تمت إضافة الخامة', 'success');
   };
   
-  const si = body.querySelector('#matSearch');
-  const rf = body.querySelector('#matRoomFilter');
-  const cb = body.querySelector('#clearMatSearch');
-  const af = () => filterMaterials(si.value, rf.value);
-  si.oninput = af;
-  rf.onchange = af;
-  cb.onclick = () => { si.value = ''; rf.value = ''; filterMaterials('', ''); };
+  const si = body.querySelector('#matSearch-' + room.id);
+  const cb = body.querySelector('#clearMatSearch-' + room.id);
+  si.oninput = () => renderMaterialList(room, list, si.value);
+  cb.onclick = () => { si.value = ''; renderMaterialList(room, list, ''); };
   
-  return sheetShell('A-950', 'المواد والخامات', 'مرجع الخامات والمواد', body);
+  return body;
 }
 
-function filterMaterials(query, roomId = '') {
-  const list = document.getElementById('materialList');
-  if (!list) return;
-  const q = query.toLowerCase().trim();
+function renderMaterialList(room, list, query) {
   list.innerHTML = '';
-  state.materials.forEach((m, i) => {
-    const match = (q === '' || m.name.toLowerCase().includes(q) || (m.code && m.code.toLowerCase().includes(q)) || m.type.toLowerCase().includes(q)) && (!roomId || m.roomId === roomId);
-    if (match) list.appendChild(materialCard(m, i));
+  const q = query.toLowerCase().trim();
+  if (!room.materials.length) {
+    const em = document.createElement('div');
+    em.className = 'empty-note';
+    em.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:48px;height:48px;margin-bottom:12px;opacity:0.4;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg><br>لا توجد خامات مضافة بعد لهذه الغرفة.`;
+    list.appendChild(em);
+    return;
+  }
+  room.materials.forEach(m => {
+    const match = q === '' || m.name.toLowerCase().includes(q) || (m.code && m.code.toLowerCase().includes(q)) || m.type.toLowerCase().includes(q);
+    if (match) list.appendChild(materialCard(room, m));
   });
 }
 
-function materialCard(m, i) {
+function materialCard(room, m) {
   const card = document.createElement('div');
   card.className = 'color-card';
   card.style.cssText = 'transition:all 0.3s ease;';
-  
-  const room = state.rooms.find(r => r.id === m.roomId);
-  const rn = room ? escapeHtml(room.name) : 'غير محدد';
   
   const imgH = m.image
     ? `<div style="height:160px;background:#f1ede3;overflow:hidden;position:relative;cursor:pointer;" class="mat-image-preview">
@@ -851,12 +988,11 @@ function materialCard(m, i) {
     <div class="color-fields">
       <input type="text" value="${escapeAttr(m.name)}" placeholder="اسم الخامة" style="font-size:15px;font-weight:600;margin-bottom:8px;">
       <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;">
-        <span class="color-hex mono" style="padding:4px 8px;background:var(--paper);border-radius:4px;font-size:11px;">🏠 ${rn}</span>
         ${m.code ? `<span class="color-hex mono" style="padding:4px 8px;background:var(--paper);border-radius:4px;font-size:11px;">${escapeHtml(m.code)}</span>` : ''}
       </div>
       <textarea placeholder="ملاحظات...">${escapeHtml(m.note)}</textarea>
     </div>
-    <button class="delete-btn" onclick="deleteMaterial(${i})">حذف هذه الخامة</button>`;
+    <button class="delete-btn">حذف هذه الخامة</button>`;
   
   if (m.image) {
     const ip = card.querySelector('.mat-image-preview');
@@ -871,13 +1007,15 @@ function materialCard(m, i) {
   
   card.querySelector('input[type=text]').oninput = e => { m.name = e.target.value; saveToLocalStorage(); };
   card.querySelector('textarea').oninput = e => { m.note = e.target.value; saveToLocalStorage(); };
+  card.querySelector('.delete-btn').onclick = () => deleteMaterial(room, m.id);
   return card;
 }
 
-async function deleteMaterial(i) {
+async function deleteMaterial(room, materialId) {
   const ok = await showConfirm({ title: 'حذف الخامة؟', message: 'لا يمكن التراجع عن هذا الإجراء.', confirmLabel: 'حذف', icon: '📦' });
   if (ok) {
-    state.materials.splice(i, 1);
+    const i = room.materials.findIndex(m => m.id === materialId);
+    if (i !== -1) room.materials.splice(i, 1);
     renderAll();
     saveToLocalStorage();
     showToast('تم الحذف', 'info');
@@ -899,7 +1037,9 @@ function renderSignatureSheet() {
   summary.className = 'summary-grid';
   const totalImgs = state.rooms.reduce((s, r) => s + r.images.length, 0);
   
-  [['عدد الغرف', state.rooms.length], ['إجمالي الصور', totalImgs], ['عدد الألوان', state.colors.length], ['عدد الخامات', state.materials.length]].forEach(([l, n]) => {
+  const totalColorsSig = state.rooms.reduce((s, r) => s + r.colors.length, 0);
+  const totalMaterialsSig = state.rooms.reduce((s, r) => s + r.materials.length, 0);
+  [['عدد الغرف', state.rooms.length], ['إجمالي الصور', totalImgs], ['عدد الألوان', totalColorsSig], ['عدد الخامات', totalMaterialsSig]].forEach(([l, n]) => {
     const c = document.createElement('div');
     c.className = 'summary-card';
     c.innerHTML = `<div class="n mono">${n}</div><div class="l">${l}</div>`;
@@ -1030,8 +1170,8 @@ function setupSignaturePad(canvas, clearBtn) {
 /* --------------------------------------------------------------------------
 18. حفظ / تحميل / تصدير
 -------------------------------------------------------------------------- */
-document.getElementById('addRoomBtn').onclick = () => {
-  const name = prompt('اسم الغرفة الجديدة:', 'غرفة إضافية');
+document.getElementById('addRoomBtn').onclick = async () => {
+  const name = await showAddRoomModal();
   if (name && name.trim()) {
     const room = mkRoom(name.trim());
     state.rooms.push(room);
@@ -1041,6 +1181,39 @@ document.getElementById('addRoomBtn').onclick = () => {
     showToast('تمت الإضافة', 'success');
   }
 };
+
+/* --------------------------------------------------------------------------
+18ب. نافذة إضافة غرفة جديدة (بدل نافذة prompt() الافتراضية للمتصفح)
+-------------------------------------------------------------------------- */
+function showAddRoomModal() {
+  return new Promise(resolve => {
+    const ov = document.getElementById('addRoomOverlay');
+    const input = document.getElementById('addRoomInput');
+    const ok = document.getElementById('addRoomOkBtn');
+    const cancel = document.getElementById('addRoomCancelBtn');
+
+    input.value = '';
+    ov.classList.add('show');
+
+    function cleanup(r) {
+      ov.classList.remove('show');
+      ok.onclick = null;
+      cancel.onclick = null;
+      ov.onclick = null;
+      input.onkeydown = null;
+      document.removeEventListener('keydown', esc);
+      resolve(r);
+    }
+    function esc(e) { if (e.key === 'Escape') cleanup(null); }
+
+    ok.onclick = () => cleanup(input.value);
+    cancel.onclick = () => cleanup(null);
+    ov.onclick = e => { if (e.target === ov) cleanup(null); };
+    input.onkeydown = e => { if (e.key === 'Enter') cleanup(input.value); };
+    document.addEventListener('keydown', esc);
+    setTimeout(() => input.focus(), 50);
+  });
+}
 
 function downloadBlob(blob, filename) {
   const url = URL.createObjectURL(blob);
@@ -1090,6 +1263,7 @@ document.getElementById('loadInput').onchange = async (e) => {
     if (Array.isArray(loaded.colors)) state.colors = loaded.colors;
     if (Array.isArray(loaded.materials)) state.materials = loaded.materials;
     if (loaded.signature) Object.assign(state.signature, loaded.signature);
+    migrateLegacyGlobalData();
 
     currentTab = 'project';
     renderAll();
@@ -1112,6 +1286,21 @@ document.addEventListener('DOMContentLoaded', () => {
   const sf = document.querySelector('.sidebar-footer');
   if (sf) sf.insertBefore(btn, sf.firstChild);
 });
+
+// /* --------------------------------------------------------------------------
+// 18ج. وضع التركيز (Focus Mode) — إخفاء الشريط الجانبي للتركيز على غرفة واحدة
+// -------------------------------------------------------------------------- */
+// document.addEventListener('DOMContentLoaded', () => {
+//   const btn = document.createElement('button');
+//   btn.className = 'ghost-btn focus-toggle-btn';
+//   btn.textContent = '🎯 وضع التركيز';
+//   btn.onclick = () => document.body.classList.add('focus-mode');
+//   const sf = document.querySelector('.sidebar-footer');
+//   if (sf) sf.appendChild(btn);
+// });
+
+// const focusExitBtn = document.getElementById('focusExitBtn');
+// if (focusExitBtn) focusExitBtn.onclick = () => document.body.classList.remove('focus-mode');
 
 /* ==========================================================================
 19. تصدير HTML احترافي مع علامة مائية مزغرفة + فتح صور الخامات
@@ -1139,14 +1328,84 @@ function exportAsStandaloneHTML() {
     }
     const watermarkURI = buildWatermarkDataURI();
 
-    // فهرس مع أيقونات
     const tocLinks = [
       { href: '#project-info', label: 'بيانات المشروع', icon: '📋' },
       ...state.rooms.map((r, idx) => ({ href: '#room-' + idx, label: r.name, icon: '🏠' })),
-      ...(state.colors.length ? [{ href: '#colors-sec', label: 'الألوان والدهانات', icon: '🎨' }] : []),
-      ...(state.materials.length ? [{ href: '#materials-sec', label: 'المواد والخامات', icon: '🧱' }] : []),
       ...(state.signature.approved ? [{ href: '#signature-sec', label: 'اعتماد التصميم', icon: '✍️' }] : [])
     ];
+
+    // بناء كل غرفة مع أكورديون
+    const roomsHtml = state.rooms.map((room, idx) => {
+      // قسم الصور والملاحظات
+      const imagesHtml = room.images.length ? `
+        <div class="sub-label">الصور المرجعية (${room.images.length})</div>
+        <div class="images-grid" data-room="${idx}">
+          ${room.images.map((img, i) => `
+            <div class="image-card" onclick="openLB(${idx},${i})">
+              <div class="img-wrapper">
+                <img src="${img.dataUrl}" loading="lazy" alt="صورة ${i + 1}">
+                <div class="overlay"><span class="overlay-icon">🔍</span></div>
+                <span class="image-badge ${img.label === 'أساسي' ? '' : 'alt'}">${img.label === 'أساسي' ? 'أساسي' : 'بديل'}</span>
+              </div>
+              <div class="caption"><strong>صورة ${i + 1}</strong></div>
+            </div>`).join('')}
+        </div>` : `<div class="empty-note">لا توجد صور مرفوعة لهذه الغرفة بعد.</div>`;
+
+      const notesHtml = room.notes ? `<div class="sub-label">ملاحظات</div><div class="notes">${escapeHtml(room.notes)}</div>` : '';
+
+      // قسم المواد
+      const materialsHtml = room.materials.length ? `
+        <div class="sub-label">المواد والخامات (${room.materials.length})</div>
+        <div class="materials-grid">
+          ${room.materials.map(m => `
+            <div class="material-card">
+              ${m.image ? `<img src="${m.image}" loading="lazy" alt="${escapeHtml(m.name)}" style="cursor:zoom-in;" onclick="openMaterialLB('${m.image.replace(/'/g, "\\'")}')">` : `<div class="material-noimg">📦</div>`}
+              <div class="material-info">
+                <span class="pill type">${escapeHtml(m.type)}</span>
+                <div class="material-name">${escapeHtml(m.name)}</div>
+                ${m.code ? `<div class="material-code">${escapeHtml(m.code)}</div>` : ''}
+              </div>
+            </div>`).join('')}
+        </div>` : `<div class="empty-note">لا توجد خامات مضافة لهذه الغرفة بعد.</div>`;
+
+      // قسم الألوان
+      const colorsHtml = room.colors.length ? `
+        <div class="sub-label">الألوان والدهانات (${room.colors.length})</div>
+        <div class="colors-grid">
+          ${room.colors.map(c => `
+            <div class="color-card">
+              <div class="color-swatch" style="background:${c.hex}"><span class="hexlabel">${c.hex}</span></div>
+              <div class="color-info">
+                <div class="name">${escapeHtml(c.name)}</div>
+                ${c.note ? `<div class="note">${escapeHtml(c.note)}</div>` : ''}
+              </div>
+            </div>`).join('')}
+        </div>` : `<div class="empty-note">لا توجد ألوان مضافة لهذه الغرفة بعد.</div>`;
+
+      return `
+        <div class="room" id="room-${idx}">
+          <div class="room-head"><h3>${escapeHtml(room.name)}</h3></div>
+          <details open>
+            <summary>🏠 بيانات الغرفة (${room.images.length})</summary>
+            <div class="details-content">
+              ${imagesHtml}
+              ${notesHtml}
+            </div>
+          </details>
+          <details>
+            <summary>🧱 المواد والخامات (${room.materials.length})</summary>
+            <div class="details-content">
+              ${materialsHtml}
+            </div>
+          </details>
+          <details>
+            <summary>🎨 الألوان والدهانات (${room.colors.length})</summary>
+            <div class="details-content">
+              ${colorsHtml}
+            </div>
+          </details>
+        </div>`;
+    }).join('');
 
     const h = `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
@@ -1183,7 +1442,6 @@ body{
 }
 .wrap{position:relative; max-width:1080px; margin:0 auto; padding:32px 24px 80px;}
 
-/* ---------- تحسين الأزرار للأيفون ---------- */
 button, .image-card, .lightbox-nav, .back-to-top, .toc-list a, .toc-float-label, .toc-backdrop, .toc-popup-close {
     cursor: pointer;
     -webkit-tap-highlight-color: rgba(184,134,62,.25);
@@ -1192,12 +1450,64 @@ button, .image-card, .lightbox-nav, .back-to-top, .toc-list a, .toc-float-label,
     touch-action: manipulation;
 }
 
+/* ---------- الأكورديون ---------- */
+details {
+  margin: 16px 0;
+  border: 1px solid var(--paper-line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--paper);
+  transition: background 0.2s;
+}
+details[open] {
+  background: var(--paper-alt);
+}
+summary {
+  padding: 14px 18px;
+  font-weight: 800;
+  font-size: 1.15rem;
+  cursor: pointer;
+  background: var(--paper);
+  transition: background 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  list-style: none;
+}
+summary:hover {
+  background: var(--paper-alt);
+}
+summary::-webkit-details-marker {
+  display: none;
+}
+summary::before {
+  content: "▶";
+  font-size: 0.9rem;
+  color: var(--brass);
+  transition: transform 0.25s;
+  display: inline-block;
+  margin-left: 8px;
+}
+details[open] summary::before {
+  transform: rotate(90deg);
+}
+details[open] summary {
+  border-bottom: 1px solid var(--paper-line);
+  background: var(--paper-alt);
+}
+.details-content {
+  padding: 16px 18px;
+}
+.section-label {
+  font-size: 1.2rem !important;
+  margin: 20px 0 12px;
+}
+
+/* باقي الأنماط ... */
+/* (جميع الأنماط الأخرى كما هي، تضاف هنا) */
+
 /* ==========================================================================
    نظام الفهرس: مفتاح واحد (checkbox واحد) يتحكم في كل شيء بـ CSS خالص
-   بدون أي اعتماد على الجافاسكريبت — يعمل حتى لو JS معطّلة تماماً
-   (مثل بعض أوضاع المعاينة السريعة على الآيفون).
-   الـ checkbox موجود كأول عنصر داخل body، وكل عناصر التحكم (الزر العائم،
-   زر الإغلاق، الخلفية الشفافة) عبارة عن <label for="tocToggle"> فقط.
    ========================================================================== */
 .toc-toggle-checkbox {
   position: absolute;
@@ -1206,7 +1516,6 @@ button, .image-card, .lightbox-nav, .back-to-top, .toc-list a, .toc-float-label,
   pointer-events: none;
 }
 
-/* ---------- الترويسة ---------- */
 .doc-bar{
   display:flex; align-items:center; justify-content:space-between; gap:12px;
   padding:10px 4px 18px; border-bottom:1px solid var(--paper-line); margin-bottom:0;
@@ -1256,7 +1565,7 @@ button, .image-card, .lightbox-nav, .back-to-top, .toc-list a, .toc-float-label,
   gap:10px;
 }
 
-/* ---------- فهرس المحتويات (لاصق على الديسكتوب) ---------- */
+/* ---------- فهرس المحتويات ---------- */
 .toc-wrap{
   position: sticky;
   top: 10px;
@@ -1267,9 +1576,6 @@ button, .image-card, .lightbox-nav, .back-to-top, .toc-list a, .toc-float-label,
   box-shadow: var(--shadow-md);
   margin: 34px 0 16px;
   border: 1px solid var(--paper-line);
-  /* ملاحظة: لا نضع backdrop-filter/filter/transform هنا أبداً — أي منهم
-     على عنصر أب يحوّل موضع أي عنصر ابن position:fixed بالنسبة له بدل
-     الشاشة كلها، وده كان سبب اختفاء القائمة في نسخة سابقة. */
 }
 .toc-header{
   display: flex;
@@ -1282,15 +1588,12 @@ button, .image-card, .lightbox-nav, .back-to-top, .toc-list a, .toc-float-label,
   text-transform:uppercase; letter-spacing:.12em;
   margin:0; padding:0; border:none;
 }
-
-/* حاوية القائمة على الديسكتوب: كتلة ثابتة الظهور دائماً */
 .toc-list-wrap {
   overflow: visible;
   max-height: none;
   opacity: 1;
   margin-top: 12px;
 }
-
 .toc-list {
   list-style: none;
   display: flex;
@@ -1300,7 +1603,6 @@ button, .image-card, .lightbox-nav, .back-to-top, .toc-list a, .toc-float-label,
   padding: 2px 0;
 }
 .toc-list::-webkit-scrollbar { display: none; }
-
 .toc-list li {
   display: inline-block;
   border: 1px solid var(--paper-line);
@@ -1310,7 +1612,6 @@ button, .image-card, .lightbox-nav, .back-to-top, .toc-list a, .toc-float-label,
 }
 .toc-list li:hover { background: var(--paper-alt); border-color: var(--brass); }
 .toc-list li:active { background: var(--paper-alt); }
-
 .toc-list a {
   display: flex;
   align-items: center;
@@ -1326,14 +1627,10 @@ button, .image-card, .lightbox-nav, .back-to-top, .toc-list a, .toc-float-label,
   font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-soft);
   background: var(--paper-alt); padding: 2px 6px; border-radius: 12px; flex-shrink: 0;
 }
-
-/* رأس البطاقة العائمة (يظهر فقط على الموبايل) */
 .toc-popup-header{ display: none; }
-
-/* الخلفية الشفافة التي تقفل القائمة عند الضغط خارجها (تظهر فقط على الموبايل) */
 .toc-backdrop{ display: none; }
 
-/* ---------- الزر العائم لفتح القائمة (CSS فقط، ثابت أيًا كان مكان التمرير) ---------- */
+/* زر عائم للموبايل */
 .toc-float {
   position: fixed;
   right: 20px;
@@ -1378,7 +1675,6 @@ button, .image-card, .lightbox-nav, .back-to-top, .toc-list a, .toc-float-label,
   border-radius: 20px; padding: 1px 10px; font-size: 12.5px; font-weight: 700;
 }
 
-/* عند تفعيل الـ checkbox (القائمة مفتوحة): تحويل الهمبرغر لعلامة × */
 .toc-toggle-checkbox:checked ~ .toc-float .toc-float-label .hamburger span:nth-child(1){
   top:6px; transform: rotate(45deg);
 }
@@ -1389,32 +1685,14 @@ button, .image-card, .lightbox-nav, .back-to-top, .toc-list a, .toc-float-label,
   top:6px; transform: rotate(-45deg);
 }
 
-/* ================================================================
-   على الديسكتوب: القائمة مفتوحة ومثبتة دائماً، ونخفي الزر العائم
-   ================================================================ */
 @media (min-width:769px) {
   .toc-float { display: none !important; }
   .toc-list-wrap { max-height: 80vh; opacity: 1; margin-top: 12px; }
 }
-
-/* ================================================================
-   على الموبايل: القائمة بطاقة عائمة (Popup) فوق الزر مباشرة،
-   لا تدفع ولا تغطي محتوى الصفحة، وتُتحكم بالكامل عبر checkbox واحد
-   بدون أي جافاسكريبت.
-   ================================================================ */
 @media (max-width:768px) {
   .toc-float { display: flex; }
-
-  .toc-wrap{
-    position: static;
-    background: transparent;
-    box-shadow: none;
-    border: none;
-    padding: 0;
-    margin: 0;
-  }
+  .toc-wrap{ position:static; background:transparent; box-shadow:none; border:none; padding:0; margin:0; }
   .toc-header{ display: none; }
-
   .toc-list-wrap{
     position: fixed;
     left: 14px;
@@ -1445,7 +1723,6 @@ button, .image-card, .lightbox-nav, .back-to-top, .toc-list a, .toc-float-label,
     pointer-events: auto;
     overflow: visible;
   }
-
   .toc-popup-header{
     display: flex; align-items: center; justify-content: space-between; gap: 10px;
     padding: 14px 16px 12px;
@@ -1465,7 +1742,6 @@ button, .image-card, .lightbox-nav, .back-to-top, .toc-list a, .toc-float-label,
     transition: background .2s ease;
   }
   .toc-popup-close:active{ background: var(--paper-line); }
-
   .toc-list{
     grid-template-columns: repeat(2, 1fr);
     display: grid;
@@ -1482,7 +1758,6 @@ button, .image-card, .lightbox-nav, .back-to-top, .toc-list a, .toc-float-label,
     background: var(--brass-glow); border-radius: 8px; font-size: 16px;
   }
   .toc-list a .leader{ font-size:10.5px; padding:2px 7px; }
-
   .toc-backdrop{
     display: block;
     position: fixed;
@@ -1498,14 +1773,13 @@ button, .image-card, .lightbox-nav, .back-to-top, .toc-list a, .toc-float-label,
     pointer-events: auto;
   }
 }
-
 @media (max-width:640px){
   .toc-list{ grid-template-columns: repeat(2, 1fr); gap:6px; }
   .toc-list a .label{ font-size:13px; }
   .toc-float-label{ padding:12px 16px; font-size:16px; min-width:52px; min-height:52px; }
 }
 
-/* ---------- باقي الأنماط (الأقسام، البطاقات، الخ) ---------- */
+/* ---------- باقي الأنماط ---------- */
 .section-block{ margin-top:44px; scroll-margin-top:20px; }
 .section-head{
   display:flex; align-items:center; gap:14px; margin-bottom:20px;
@@ -1629,7 +1903,6 @@ button, .image-card, .lightbox-nav, .back-to-top, .toc-list a, .toc-float-label,
   .cover{ -webkit-print-color-adjust: exact; print-color-adjust: exact; break-inside:avoid; }
   .section-block{ break-inside:auto; }
 }
-
 @media (max-width:640px){
   .cover{ padding:30px 20px; }
   .wrap{ padding:16px 12px 60px; }
@@ -1641,14 +1914,11 @@ button, .image-card, .lightbox-nav, .back-to-top, .toc-list a, .toc-float-label,
 </head>
 <body>
 
-<!-- المفتاح الوحيد الذي يتحكم في فتح/غلق الفهرس بالكامل عبر CSS فقط،
-     بدون أي اعتماد على الجافاسكريبت. أي label في الصفحة بـ for="tocToggle"
-     (الزر العائم، زر الإغلاق، الخلفية) يفتح ويغلق نفس القائمة. -->
+<!-- المفتاح الوحيد الذي يتحكم في الفهرس -->
 <input type="checkbox" id="tocToggle" class="toc-toggle-checkbox">
 
 <noscript>
   <style>
-    /* تنبيه بسيط في أعلى الصفحة لو الجافاسكريبت معطّلة (وضع معاينة) */
     .js-note{
       background:#1b2a41; color:#e9d19f; text-align:center; font-size:12.5px;
       padding:8px 14px; position:relative; z-index:2000;
@@ -1710,58 +1980,8 @@ button, .image-card, .lightbox-nav, .back-to-top, .toc-list a, .toc-float-label,
 
   <div class="section-block">
     <div class="section-head"><h2>🏠 الغرف</h2><span class="count">${state.rooms.length} غرفة</span></div>
-    ${state.rooms.map((room, idx) => `
-      <div class="room" id="room-${idx}">
-        <div class="room-head"><h3>${escapeHtml(room.name)}</h3></div>
-        ${room.images.length ? `
-          <div class="sub-label">الصور المرجعية (${room.images.length})</div>
-          <div class="images-grid" data-room="${idx}">
-            ${room.images.map((img, i) => `
-              <div class="image-card" onclick="openLB(${idx},${i})">
-                <div class="img-wrapper">
-                  <img src="${img.dataUrl}" loading="lazy" alt="صورة ${i + 1}">
-                  <div class="overlay"><span class="overlay-icon">🔍</span></div>
-                  <span class="image-badge ${img.label === 'أساسي' ? '' : 'alt'}">${img.label === 'أساسي' ? 'أساسي' : 'بديل'}</span>
-                </div>
-                <div class="caption"><strong>صورة ${i + 1}</strong></div>
-              </div>`).join('')}
-          </div>` : `<div class="empty-note">لا توجد صور مرفوعة لهذه الغرفة بعد.</div>`}
-        ${room.notes ? `<div class="sub-label">ملاحظات</div><div class="notes">${escapeHtml(room.notes)}</div>` : ''}
-      </div>`).join('')}
+    ${roomsHtml}
   </div>
-
-  ${state.colors.length ? `
-  <div class="section-block" id="colors-sec">
-    <div class="section-head"><h2>🎨 الألوان والدهانات</h2><span class="count">${state.colors.length} لون</span></div>
-    <div class="colors-grid">
-      ${state.colors.map(c => `
-        <div class="color-card">
-          <div class="color-swatch" style="background:${c.hex}"><span class="hexlabel">${c.hex}</span></div>
-          <div class="color-info">
-            <div class="name">${escapeHtml(c.name)}</div>
-            ${c.note ? `<div class="note">${escapeHtml(c.note)}</div>` : ''}
-          </div>
-        </div>`).join('')}
-    </div>
-  </div>` : ''}
-
-  ${state.materials.length ? `
-  <div class="section-block" id="materials-sec">
-    <div class="section-head"><h2>🧱 المواد والخامات</h2><span class="count">${state.materials.length} خامة</span></div>
-    <div class="materials-grid">
-      ${state.materials.map(m => {
-        const room = state.rooms.find(r => r.id === m.roomId);
-        return `<div class="material-card">
-          ${m.image ? `<img src="${m.image}" loading="lazy" alt="${escapeHtml(m.name)}" style="cursor:zoom-in;" onclick="openMaterialLB('${m.image.replace(/'/g, "\\'")}')">` : `<div class="material-noimg">📦</div>`}
-          <div class="material-info">
-            <span class="pill type">${escapeHtml(m.type)}</span>${room ? `<span class="pill room">${escapeHtml(room.name)}</span>` : ''}
-            <div class="material-name">${escapeHtml(m.name)}</div>
-            ${m.code ? `<div class="material-code">${escapeHtml(m.code)}</div>` : ''}
-          </div>
-        </div>`;
-      }).join('')}
-    </div>
-  </div>` : ''}
 
   ${state.signature.approved ? `
   <div class="section-block" id="signature-sec">
@@ -1783,14 +2003,11 @@ button, .image-card, .lightbox-nav, .back-to-top, .toc-list a, .toc-float-label,
   </div>
 </div>
 
-<!-- خلفية شفافة تقفل القائمة عند الضغط خارجها (CSS فقط، تظهر على الموبايل فقط) -->
 <label for="tocToggle" class="toc-backdrop"></label>
 
-<!-- زر عائم لفتح/غلق الفهرس (CSS فقط عبر label، يظهر فقط على الموبايل) -->
 <div class="toc-float">
   <label for="tocToggle" class="toc-float-label">
     <span class="hamburger"><span></span><span></span><span></span></span>
-    
   </label>
 </div>
 
@@ -1877,10 +2094,6 @@ document.addEventListener('keydown', e => {
   else if (e.key === 'ArrowLeft') nextImg();
 });
 
-document.addEventListener('touchstart', function(){}, { passive: true });
-
-// تحسين اختياري فقط (ليس ضرورياً): إغلاق القائمة تلقائياً بعد اختيار رابط
-// على الموبايل. القائمة نفسها تعمل بالكامل بدون هذا الكود.
 document.addEventListener('DOMContentLoaded', function() {
   const tocToggle = document.getElementById('tocToggle');
   const tocLinksEls = document.querySelectorAll('.toc-list a');

@@ -2020,3 +2020,310 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
   border: 1px dashed #d9d2c1;
   border-radius: 4px;
 }
+/* ==========================================================================
+   إضافات جديدة: الأكورديون داخل الغرفة، وضع التركيز، عرض الغرف (شبكة/قائمة)
+   ========================================================================== */
+
+/* -------------------- حقل الإدخال داخل نافذة إضافة الغرفة -------------------- */
+.confirm-box #addRoomInput {
+  margin: var(--space-sm) 0 var(--space-lg);
+  text-align: center;
+}
+
+/* -------------------- أكورديون أقسام الغرفة -------------------- */
+.room-accordion {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  margin-top: var(--space-md);
+}
+
+.accordion-section {
+  border: 1px solid var(--paper-line);
+  border-radius: var(--radius-lg);
+  background: var(--card-bg);
+  overflow: hidden;
+  transition: box-shadow var(--transition-base);
+}
+
+.accordion-section:hover {
+  box-shadow: var(--shadow-xs);
+}
+
+.accordion-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  width: 100%;
+  padding: 14px var(--space-md);
+  background: var(--empty-bg);
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: right;
+}
+
+.accordion-header:hover {
+  background: var(--sidebar-active, rgba(196,154,108,.1));
+}
+
+.accordion-header .accordion-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  font-size: var(--font-base);
+  color: var(--ink);
+}
+
+.accordion-header .accordion-title .accordion-count {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: var(--font-xs);
+  color: var(--brass-dark);
+  background: rgba(196,154,108,.15);
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 700;
+}
+
+.accordion-arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  transition: transform var(--transition-base);
+  color: var(--ink-soft);
+  flex-shrink: 0;
+}
+
+.accordion-section.open .accordion-arrow {
+  transform: rotate(180deg);
+  color: var(--brass-dark);
+}
+
+.accordion-body {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height var(--transition-slow), padding var(--transition-base);
+  padding: 0 var(--space-md);
+}
+
+.accordion-section.open .accordion-body {
+  max-height: none;
+  padding: var(--space-md);
+  border-top: 1px solid var(--paper-line);
+}
+
+/* -------------------- بطاقات الغرف في الصفحة الرئيسية -------------------- */
+.rooms-overview-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+  margin: var(--space-lg) 0 var(--space-md);
+}
+
+.view-toggle {
+  display: inline-flex;
+  border: 1.5px solid var(--paper-line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.view-toggle button {
+  border: none;
+  background: var(--card-bg);
+  color: var(--ink-soft);
+  padding: 8px 14px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: var(--font-sm);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all var(--transition-fast);
+}
+
+.view-toggle button.active {
+  background: var(--brass);
+  color: #241a06;
+}
+
+.rooms-overview {
+  display: grid;
+  gap: var(--space-md);
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+}
+
+.rooms-overview.list-view {
+  grid-template-columns: 1fr;
+}
+
+.room-overview-card {
+  border: 1px solid var(--paper-line);
+  border-radius: var(--radius-lg);
+  background: var(--card-bg);
+  cursor: pointer;
+  overflow: hidden;
+  transition: transform var(--transition-base), box-shadow var(--transition-base);
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+}
+
+.rooms-overview.list-view .room-overview-card {
+  flex-direction: row-reverse;
+  align-items: center;
+}
+
+.room-overview-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--brass-light);
+}
+
+.room-overview-thumb {
+  height: 130px;
+  background: linear-gradient(135deg, var(--empty-bg), var(--paper-line));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.rooms-overview.list-view .room-overview-thumb {
+  width: 110px;
+  height: 80px;
+}
+
+.room-overview-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.room-overview-thumb .placeholder-icon {
+  font-size: 32px;
+  opacity: .35;
+}
+
+.room-overview-info {
+  padding: var(--space-sm) var(--space-md) var(--space-md);
+  flex: 1;
+}
+
+.room-overview-info .name {
+  font-weight: 700;
+  font-size: var(--font-base);
+  color: var(--ink);
+  margin-bottom: 4px;
+}
+
+.room-overview-info .meta {
+  font-size: var(--font-xs);
+  color: var(--ink-soft);
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* -------------------- وضع التركيز (Focus Mode) -------------------- */
+body.focus-mode .sidebar {
+  transform: translateX(110%);
+  pointer-events: none;
+}
+
+body.focus-mode .main {
+  margin-inline-start: 0 !important;
+  max-width: 900px;
+  margin-inline-end: auto;
+}
+
+.focus-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.focus-exit-btn {
+  display: none;
+  position: fixed;
+  top: 18px;
+  left: 18px;
+  z-index: 950;
+  background: var(--navy);
+  color: #fff;
+  border: none;
+  border-radius: 999px;
+  padding: 10px 18px;
+  font-family: inherit;
+  font-weight: 700;
+  font-size: var(--font-sm);
+  cursor: pointer;
+  box-shadow: var(--shadow-md);
+  transition: all var(--transition-fast);
+}
+
+.focus-exit-btn:hover {
+  background: var(--navy-2);
+  transform: translateY(-2px);
+}
+
+body.focus-mode .focus-exit-btn {
+  display: inline-flex;
+}
+
+/* -------------------- تحسين أزرار الحذف عمومًا -------------------- */
+.btn-danger-text, .color-card .delete-btn {
+  transition: all var(--transition-fast), transform var(--transition-fast);
+}
+
+.btn-danger-text:active, .color-card .delete-btn:active {
+  transform: scale(0.97);
+}
+
+/* -------------------- تحسينات تباعد وهوامش متجاوبة -------------------- */
+@media (max-width: 900px) {
+  .rooms-overview {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: var(--space-sm);
+  }
+  .accordion-header {
+    padding: 12px var(--space-sm);
+  }
+  .accordion-section.open .accordion-body {
+    padding: var(--space-sm);
+  }
+}
+
+@media (max-width: 480px) {
+  .rooms-overview {
+    grid-template-columns: 1fr 1fr;
+  }
+  .rooms-overview-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .view-toggle {
+    justify-content: center;
+  }
+}
+
+/* -------------------- تأثيرات انتقالية دقيقة إضافية -------------------- */
+.nav-item, .accordion-section, .room-overview-card, .btn, .ghost-btn {
+  will-change: transform;
+}
+
+.sheet {
+  animation: sheetFadeIn .35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes sheetFadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
