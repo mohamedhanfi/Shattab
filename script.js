@@ -486,7 +486,7 @@ function sheetShell(tag, title, desc, bodyEl) {
 function renderProjectSheet() {
   const body = document.createElement('div');
   body.innerHTML = `
-    <div class="top-hint">هذا الملف بمثابة دفتر مرجعي يوثّق اختيارات العميل قبل التنفيذ.</div>
+    <div class="top-hint">${t('project-hint')}</div>
     <h3 class="section-label">${t('project-info')}</h3>
     <div class="field-row">
       <div class="field"><label class="field-label">${t('project-name')}</label><input type="text" id="pName" placeholder="${t('project-name-placeholder')}"></div>
@@ -2766,6 +2766,8 @@ const translations = {
     'default-room-2': 'الحمام',
     'default-room-3': 'المطبخ',
     'default-room-4': 'الصالة',
+    'project-hint': 'هذا الملف بمثابة دفتر مرجعي يوثّق اختيارات العميل قبل التنفيذ.',
+
   },
   en: {
     'app-title': 'Shateb — Design Reference Book',
@@ -2864,6 +2866,7 @@ const translations = {
     'default-room-2': 'Bathroom',
     'default-room-3': 'Kitchen',
     'default-room-4': 'Living Room',
+    'project-hint': 'This file serves as a reference book documenting the client\'s choices before execution.',
   }
 };
 
