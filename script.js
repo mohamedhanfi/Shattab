@@ -9,6 +9,9 @@
 window.addEventListener('load', () => {
   loadFromLocalStorage();
   startAutoSave();
+  // تطبيق اللغة المحفوظة
+  const savedLang = localStorage.getItem('shateb_lang') || 'ar';
+  setLanguage(savedLang, true); // true يعني عدم إعادة التحميل
 });
 
 /* --------------------------------------------------------------------------
@@ -174,7 +177,9 @@ function loadProjectsList() {
     const newProject = {
       id: 'proj_' + Date.now(),
       name: defaultName,
-      data: JSON.parse(JSON.stringify(state))
+      data: JSON.parse(JSON.stringify(state)),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     };
     projects.push(newProject);
     saveProjectsList();
@@ -224,7 +229,16 @@ function saveCurrentProject() {
   if (state.project.name && state.project.name !== project.name) {
     project.name = state.project.name;
   }
+  project.updatedAt = new Date().toISOString();
   saveProjectsList();
+}
+
+/* --------------------------------------------------------------------------
+دالة مساعدة للحصول على أسماء الغرف الافتراضية حسب اللغة (إضافة جديدة)
+-------------------------------------------------------------------------- */
+function getDefaultRoomNames(lang) {
+  const keys = ['default-room-1', 'default-room-2', 'default-room-3', 'default-room-4'];
+  return keys.map(key => translations[lang]?.[key] || translations['ar'][key]);
 }
 
 function createNewProject(projectName) {
@@ -233,6 +247,7 @@ function createNewProject(projectName) {
     return false;
   }
   saveCurrentProject();
+  const defaultNames = getDefaultRoomNames(currentLang);
   const newState = {
     project: {
       name: projectName.trim(),
@@ -240,12 +255,7 @@ function createNewProject(projectName) {
       engineer: '',
       date: new Date().toISOString().slice(0, 10)
     },
-    rooms: [
-      mkRoom('غرفة النوم'),
-      mkRoom('الحمام'),
-      mkRoom('المطبخ'),
-      mkRoom('الصالة')
-    ],
+    rooms: defaultNames.map(name => mkRoom(name)),
     colors: [],
     materials: [],
     signature: {
@@ -259,7 +269,9 @@ function createNewProject(projectName) {
   const newProject = {
     id: 'proj_' + Date.now(),
     name: projectName.trim(),
-    data: newState
+    data: newState,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
   };
   projects.push(newProject);
   saveProjectsList();
@@ -310,7 +322,7 @@ function renderSidebar() {
   
   const navProject = document.getElementById('navProject');
   navProject.innerHTML = '';
-  navProject.appendChild(navItem('project', 'بيانات المشروع', 'project', currentTab === 'project'));
+  navProject.appendChild(navItem('project', t('project-info'), 'project', currentTab === 'project'));
 
   const navRooms = document.getElementById('navRooms');
   navRooms.innerHTML = '';
@@ -327,7 +339,7 @@ function renderSidebar() {
 
   const navEnd = document.getElementById('navEnd');
   navEnd.innerHTML = '';
-  navEnd.appendChild(navItem('signature', 'اعتماد التصميم', 'signature', currentTab === 'signature'));
+  navEnd.appendChild(navItem('signature', t('signature-title'), 'signature', currentTab === 'signature'));
   
   updateProgress();
 }
@@ -392,23 +404,24 @@ function navItem(iconKey, label, tabKey, active, count) {
   btn.innerHTML = `<span class="icon" aria-hidden="true">${navIconFor(iconKey)}</span><span>${escapeHtml(label)}</span>` +
     (count !== undefined ? `<span class="count">${count}</span>` : '');
   btn.onclick = () => { currentTab = tabKey; renderAll(); };
+  btn.title = t('switch-project') || 'تبديل';
   return btn;
 }
 
-const TAB_LABELS = {
-  project: 'بيانات المشروع',
-  signature: 'اعتماد التصميم'
-};
-
-function tabLabel(tab) {
-  return TAB_LABELS[tab] || (state.rooms.find(r => r.id === tab)?.name || '');
+// دالة جديدة للحصول على تسمية التاب المترجمة
+function getTabLabel(tab) {
+  if (tab === 'project') return t('project-info');
+  if (tab === 'signature') return t('signature-title');
+  const room = state.rooms.find(r => r.id === tab);
+  return room ? room.name : '';
 }
 
 function renderBreadcrumb() {
+  const label = getTabLabel(currentTab);
   document.getElementById('breadcrumb').innerHTML =
-    `<span>شطّب</span><span class="crumb-sep">/</span><span class="crumb-current">${escapeHtml(tabLabel(currentTab))}</span>`;
+    `<span>شطّب</span><span class="crumb-sep">/</span><span class="crumb-current">${escapeHtml(label)}</span>`;
   const mt = document.getElementById('mobileTopbarTab');
-  if (mt) mt.textContent = tabLabel(currentTab);
+  if (mt) mt.textContent = label;
 }
 
 /* --------------------------------------------------------------------------
@@ -456,6 +469,7 @@ function renderAll() {
   });
   
   closeDrawer();
+  applyTranslations();
 }
 
 function sheetShell(tag, title, desc, bodyEl) {
@@ -473,18 +487,18 @@ function renderProjectSheet() {
   const body = document.createElement('div');
   body.innerHTML = `
     <div class="top-hint">هذا الملف بمثابة دفتر مرجعي يوثّق اختيارات العميل قبل التنفيذ.</div>
-    <h3 class="section-label">بيانات المشروع</h3>
+    <h3 class="section-label">${t('project-info')}</h3>
     <div class="field-row">
-      <div class="field"><label class="field-label">اسم المشروع</label><input type="text" id="pName" placeholder="مثال: شقة التجمع الخامس"></div>
-      <div class="field"><label class="field-label">اسم العميل</label><input type="text" id="pClient" placeholder="اسم العميل"></div>
+      <div class="field"><label class="field-label">${t('project-name')}</label><input type="text" id="pName" placeholder="${t('project-name-placeholder')}"></div>
+      <div class="field"><label class="field-label">${t('client-name-label')}</label><input type="text" id="pClient" placeholder="${t('client-placeholder')}"></div>
     </div>
     <div class="field-row">
-      <div class="field"><label class="field-label">اسم المهندس / المصمم</label><input type="text" id="pEngineer" placeholder="اسمك"></div>
-      <div class="field"><label class="field-label">التاريخ</label><input type="date" id="pDate"></div>
+      <div class="field"><label class="field-label">${t('engineer-name')}</label><input type="text" id="pEngineer" placeholder="${t('engineer-placeholder')}"></div>
+      <div class="field"><label class="field-label">${t('date-label')}</label><input type="date" id="pDate"></div>
     </div>
     <div class="summary-grid" id="projectSummary"></div>
     <div class="rooms-overview-head">
-      <h3 class="section-label" style="margin:0;border:none;padding:0;">الغرف (${state.rooms.length})</h3>
+      <h3 class="section-label" style="margin:0;border:none;padding:0;">${t('rooms')} (${state.rooms.length})</h3>
       <div class="view-toggle no-print" id="roomViewToggle">
         <button type="button" data-view="grid">▦ شبكة</button>
         <button type="button" data-view="list">☰ قائمة</button>
@@ -507,11 +521,11 @@ function renderProjectSheet() {
   const totalColors = state.rooms.reduce((s, r) => s + r.colors.length, 0);
   const totalMaterials = state.rooms.reduce((s, r) => s + r.materials.length, 0);
   [
-    ['عدد الغرف', state.rooms.length],
-    ['إجمالي الصور', totalImgs],
-    ['عدد الألوان', totalColors],
-    ['عدد الخامات', totalMaterials],
-    ['حالة الاعتماد', state.signature.approved ? 'معتمد ✓' : 'بانتظار التوقيع']
+    [t('rooms-count'), state.rooms.length],
+    [t('total-images'), totalImgs],
+    [t('total-colors'), totalColors],
+    [t('total-materials'), totalMaterials],
+    [t('approval-status'), state.signature.approved ? t('approved') : t('pending')]
   ].forEach(([l, n]) => {
     const c = document.createElement('div');
     c.className = 'summary-card';
@@ -532,7 +546,7 @@ function renderProjectSheet() {
     };
   });
   
-  return sheetShell('A-100', 'بيانات المشروع', 'صفحة الغلاف', body);
+  return sheetShell('A-100', t('project-info'), t('project-sheet-desc'), body);
 }
 
 /* --------------------------------------------------------------------------
@@ -563,9 +577,9 @@ function renderRoomsOverview(container) {
       <div class="room-overview-info">
         <div class="name">${escapeHtml(room.name)}</div>
         <div class="meta">
-          <span>🖼 ${room.images.length} صورة</span>
-          <span>🎨 ${room.colors.length} لون</span>
-          <span>🧱 ${room.materials.length} خامة</span>
+          <span>🖼 ${room.images.length} ${t('total-images')}</span>
+          <span>🎨 ${room.colors.length} ${t('total-colors')}</span>
+          <span>🧱 ${room.materials.length} ${t('total-materials')}</span>
         </div>
       </div>`;
     card.onclick = () => { currentTab = room.id; renderAll(); };
@@ -584,13 +598,13 @@ function renderRoomSheet(room) {
   const accordion = document.createElement('div');
   accordion.className = 'room-accordion';
 
-  accordion.appendChild(accordionSection(room, 'data', '🏠 بيانات الغرفة', room.images.length, renderRoomDataSection(room, idx)));
-  accordion.appendChild(accordionSection(room, 'materials', '🧱 المواد والخامات', room.materials.length, renderRoomMaterialsSection(room)));
-  accordion.appendChild(accordionSection(room, 'colors', '🎨 الألوان والدهانات', room.colors.length, renderRoomColorsSection(room)));
+  accordion.appendChild(accordionSection(room, 'data', '🏠 ' + t('room-data'), room.images.length, renderRoomDataSection(room, idx)));
+  accordion.appendChild(accordionSection(room, 'materials', '🧱 ' + t('room-materials'), room.materials.length, renderRoomMaterialsSection(room)));
+  accordion.appendChild(accordionSection(room, 'colors', '🎨 ' + t('room-colors'), room.colors.length, renderRoomColorsSection(room)));
 
   body.appendChild(accordion);
   
-  return sheetShell(sheetTagForRoom(idx), room.name, 'مرجع الصور والخامات والألوان', body);
+  return sheetShell(sheetTagForRoom(idx), room.name, t('room-ref'), body);
 }
 
 /* --------------------------------------------------------------------------
@@ -637,12 +651,12 @@ function renderRoomDataSection(room, idx) {
 
   const st = document.createElement('h3');
   st.className = 'section-label';
-  st.textContent = `الصور المرجعية (${room.images.length})`;
+  st.textContent = t('images-ref') + ` (${room.images.length})`;
   body.appendChild(st);
 
   const dz = document.createElement('div');
   dz.className = 'dropzone no-print';
-  dz.innerHTML = `<strong>اضغط هنا لرفع صور ${escapeHtml(room.name)}</strong><div class="hint">أو اسحب الصور وأفلتها هنا</div>`;
+  dz.innerHTML = `<strong>${t('click-to-upload')} ${escapeHtml(room.name)}</strong><div class="hint">${t('drag-drop-hint')}</div>`;
   const fi = document.createElement('input');
   fi.type = 'file';
   fi.accept = 'image/*';
@@ -674,10 +688,10 @@ function renderRoomDataSection(room, idx) {
   nw.style.borderTop = '1px dashed var(--paper-line)';
   const nt = document.createElement('h3');
   nt.className = 'section-label';
-  nt.textContent = `ملاحظات ${room.name}`;
+  nt.textContent = t('notes') + ` ${room.name}`;
   nw.appendChild(nt);
   const na = document.createElement('textarea');
-  na.placeholder = 'اكتب هنا أي ملاحظات...';
+  na.placeholder = t('notes') + '...';
   na.value = room.notes;
   na.oninput = e => { room.notes = e.target.value; saveToLocalStorage(); };
   nw.appendChild(na);
@@ -696,25 +710,26 @@ function header(room, idx) {
   const ni = document.createElement('input');
   ni.type = 'text';
   ni.value = room.name;
-  ni.setAttribute('aria-label', 'اسم الغرفة');
+  ni.setAttribute('aria-label', t('room-name-label'));
   ni.style.cssText = 'max-width:260px;font-weight:600;font-size:15px;padding:6px 10px;border:1px solid var(--paper-line);border-radius:4px;background:var(--input-bg);color:var(--ink);';
   ni.oninput = e => { room.name = e.target.value || room.name; renderSidebar(); saveToLocalStorage(); };
   
   const del = document.createElement('button');
   del.className = 'btn-danger-text';
-  del.textContent = '🗑️ حذف هذه الغرفة';
-  del.setAttribute('aria-label', 'حذف غرفة ' + room.name);
+  del.textContent = '🗑️ ' + t('delete-room');
+  del.setAttribute('aria-label', t('delete-room') + ' ' + room.name);
   del.style.cssText = 'color:var(--danger);font-size:14px;font-weight:700;cursor:pointer;padding:8px 14px;border:1px solid var(--danger);border-radius:4px;background:var(--card-bg);white-space:nowrap;transition:all 0.2s;position:relative;z-index:1;pointer-events:auto;';
   del.onmouseover = () => { del.style.background = 'var(--danger)'; del.style.color = '#fff'; };
   del.onmouseout = () => { del.style.background = 'var(--card-bg)'; del.style.color = 'var(--danger)'; };
+  del.title = t('delete-room');
   
   del.addEventListener('click', async function (event) {
     event.preventDefault();
     event.stopPropagation();
     const ok = await showConfirm({
-      title: 'حذف الغرفة؟',
+      title: t('delete-room'),
       message: 'هل أنت متأكد من حذف غرفة "' + room.name + '"؟ لا يمكن التراجع عن هذا الإجراء.',
-      confirmLabel: 'حذف الغرفة',
+      confirmLabel: t('delete-room'),
       icon: '🗑️'
     });
     if (ok) {
@@ -731,7 +746,7 @@ function header(room, idx) {
   
   const left = document.createElement('div');
   left.style.cssText = 'display:flex;align-items:center;gap:10px;flex:1;';
-  left.innerHTML = '<label style="font-weight:600;color:var(--ink-soft);">اسم الغرفة:</label>';
+  left.innerHTML = '<label style="font-weight:600;color:var(--ink-soft);">' + t('room-name-label') + '</label>';
   left.appendChild(ni);
   
   h.appendChild(left);
@@ -740,35 +755,37 @@ function header(room, idx) {
 }
 
 /* --------------------------------------------------------------------------
-13. بطاقة الصورة مع المعاينة
+13. بطاقة الصورة مع المعاينة ودعم السحب والإفلات
 -------------------------------------------------------------------------- */
 function imageCard(room, img, i) {
   const card = document.createElement('div');
   card.className = 'img-card';
   card.style.cssText = 'transition:all 0.3s cubic-bezier(0.4, 0, 0.2, 1);';
+  card.draggable = true;
+  card.dataset.index = i;
   const isPrimary = img.label === 'أساسي';
   
   card.innerHTML = `
     <div class="thumb-wrap" style="position:relative;overflow:hidden;">
       <img src="${img.dataUrl}" alt="صورة ${i + 1}" loading="lazy" style="transition:transform 0.4s ease;">
       <span class="badge-order mono">${i + 1}</span>
-      <span class="badge-label ${isPrimary ? 'primary' : 'alt'}">${isPrimary ? 'أساسي' : 'بديل'}</span>
+      <span class="badge-label ${isPrimary ? 'primary' : 'alt'}">${isPrimary ? t('primary') : t('alternative')}</span>
       <div class="img-overlay" style="position:absolute;inset:0;background:rgba(0,0,0,0);display:flex;align-items:center;justify-content:center;transition:all 0.3s;cursor:zoom-in;">
         <span style="color:#fff;font-size:24px;opacity:0;transition:opacity 0.3s;">🔍</span>
       </div>
     </div>
     <div class="pdf-caption" style="display:none;padding:6px 10px;font-size:11px;text-align:center;color:#3d4c5e;border-top:1px solid #e3dcc9;">
-      صورة ${i + 1} — ${isPrimary ? 'أساسي' : 'بديل'}
+      صورة ${i + 1} — ${isPrimary ? t('primary') : t('alternative')}
     </div>
     <div class="controls">
       <div class="arrows no-print">
-        <button class="btn-icon" data-act="up" aria-label="نقل الصورة للأعلى" title="نقل للأعلى">↑</button>
-        <button class="btn-icon" data-act="down" aria-label="نقل الصورة للأسفل" title="نقل للأسفل">↓</button>
+        <button class="btn-icon" data-act="up" aria-label="${t('switch-project')}" title="${t('switch-project')}">↑</button>
+        <button class="btn-icon" data-act="down" aria-label="${t('switch-project')}" title="${t('switch-project')}">↓</button>
       </div>
-      <button class="btn-icon no-print" data-act="del" aria-label="حذف الصورة" title="حذف الصورة">🗑️</button>
+      <button class="btn-icon no-print" data-act="del" aria-label="${t('delete')}" title="${t('delete')}">🗑️</button>
     </div>
     <div class="controls no-print" style="border-top:none;padding-top:0;">
-      <button class="toggle-label-btn" data-act="toggle">تبديل: أساسي / بديل</button>
+      <button class="toggle-label-btn" data-act="toggle">${t('toggle-label')}</button>
     </div>`;
   
   const imgEl = card.querySelector('img'),
@@ -800,7 +817,7 @@ function imageCard(room, img, i) {
   };
   
   card.querySelector('[data-act=del]').onclick = async () => {
-    const ok = await showConfirm({ title: 'حذف الصورة؟', message: 'لا يمكن التراجع عن هذا الإجراء.', confirmLabel: 'حذف', icon: '🗑️' });
+    const ok = await showConfirm({ title: t('delete'), message: 'لا يمكن التراجع عن هذا الإجراء.', confirmLabel: t('delete'), icon: '🗑️' });
     if (ok) {
       room.images.splice(i, 1);
       renderAll();
@@ -814,6 +831,34 @@ function imageCard(room, img, i) {
     renderAll();
     saveToLocalStorage();
   };
+
+  // إضافة أحداث السحب والإفلات
+  card.addEventListener('dragstart', (e) => {
+    e.dataTransfer.setData('text/plain', i);
+    card.style.opacity = '0.5';
+  });
+  card.addEventListener('dragend', () => {
+    card.style.opacity = '1';
+    document.querySelectorAll('.img-card').forEach(c => c.style.border = '');
+  });
+  card.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    card.style.border = '2px dashed var(--brass)';
+  });
+  card.addEventListener('dragleave', () => {
+    card.style.border = '';
+  });
+  card.addEventListener('drop', (e) => {
+    e.preventDefault();
+    card.style.border = '';
+    const fromIndex = parseInt(e.dataTransfer.getData('text/plain'));
+    if (fromIndex === i) return;
+    // تبديل الصور
+    [room.images[fromIndex], room.images[i]] = [room.images[i], room.images[fromIndex]];
+    renderAll();
+    saveToLocalStorage();
+    showToast('تم إعادة ترتيب الصور', 'success');
+  });
   
   return card;
 }
@@ -895,7 +940,7 @@ function renderRoomColorsSection(room) {
   
   const t1 = document.createElement('h3');
   t1.className = 'section-label';
-  t1.textContent = `إضافة لون / دهان جديد لـ ${room.name}`;
+  t1.textContent = t('add-color') + ` لـ ${room.name}`;
   body.appendChild(t1);
   
   const ar = document.createElement('div');
@@ -907,14 +952,14 @@ function renderRoomColorsSection(room) {
   
   const sr = document.createElement('div');
   sr.style.cssText = 'margin:20px 0 14px;display:flex;gap:10px;align-items:center;';
-  sr.innerHTML = `<div style="flex:1;"><label class="field-label">البحث عن لون</label><input type="text" id="colorSearch-${room.id}" placeholder="ابحث بالاسم أو الكود" style="padding:10px 12px;"></div>
-    <button class="btn btn-outline" id="clearColorSearch-${room.id}" style="margin-top:20px;">مسح</button>`;
+  sr.innerHTML = `<div style="flex:1;"><label class="field-label">${t('search-color')}</label><input type="text" id="colorSearch-${room.id}" placeholder="${t('search-color')}" style="padding:10px 12px;"></div>
+    <button class="btn btn-outline" id="clearColorSearch-${room.id}" style="margin-top:20px;">${t('clear')}</button>`;
   body.appendChild(sr);
   
   const t2 = document.createElement('h3');
   t2.className = 'section-label';
   t2.style.marginTop = '22px';
-  t2.textContent = `الألوان المختارة (${room.colors.length})`;
+  t2.textContent = t('selected-colors') + ` (${room.colors.length})`;
   body.appendChild(t2);
   
   const list = document.createElement('div');
@@ -964,13 +1009,13 @@ function colorCard(room, c, i) {
       <div style="position:absolute;bottom:8px;right:8px;background:rgba(255,255,255,0.95);padding:4px 10px;border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;color:#1c2530;">${c.hex}</div>
     </div>
     <div class="color-fields">
-      <input type="text" value="${escapeAttr(c.name)}" placeholder="اسم اللون" style="font-size:15px;font-weight:600;margin-bottom:8px;">
+      <input type="text" value="${escapeAttr(c.name)}" placeholder="${t('project-name')}" style="font-size:15px;font-weight:600;margin-bottom:8px;">
       <div class="color-hex-row">
-        <button type="button" class="color-hex mono" data-hex="${c.hex}" aria-label="نسخ كود اللون ${c.hex}">${c.hex} — انسخ</button>
+        <button type="button" class="color-hex mono" data-hex="${c.hex}" aria-label="${t('copy-hex')} ${c.hex}" title="${t('copy-hex')}">${c.hex} — ${t('copy-hex')}</button>
       </div>
-      <textarea placeholder="ملاحظات...">${escapeHtml(c.note)}</textarea>
+      <textarea placeholder="${t('notes')}...">${escapeHtml(c.note)}</textarea>
     </div>
-    <button class="delete-btn">حذف هذا اللون</button>`;
+    <button class="delete-btn" title="${t('delete-color')}">${t('delete-color')}</button>`;
   card.querySelector('input[type=text]').oninput = e => { c.name = e.target.value; saveToLocalStorage(); };
   card.querySelector('textarea').oninput = e => { c.note = e.target.value; saveToLocalStorage(); };
   card.querySelector('.color-hex').onclick = e => copyHex(c.hex, e.currentTarget);
@@ -981,13 +1026,13 @@ function colorCard(room, c, i) {
 function copyHex(hex, el) {
   navigator.clipboard.writeText(hex).then(() => {
     el.classList.add('copied');
-    el.textContent = '✓ تم النسخ';
-    setTimeout(() => { el.classList.remove('copied'); el.textContent = hex + ' — انسخ'; }, 2000);
+    el.textContent = '✓ ' + t('copied');
+    setTimeout(() => { el.classList.remove('copied'); el.textContent = hex + ' — ' + t('copy-hex'); }, 2000);
   });
 }
 
 async function deleteColor(room, colorId) {
-  const ok = await showConfirm({ title: 'حذف اللون؟', message: 'لا يمكن التراجع عن هذا الإجراء.', confirmLabel: 'حذف', icon: '🎨' });
+  const ok = await showConfirm({ title: t('delete-color'), message: 'لا يمكن التراجع عن هذا الإجراء.', confirmLabel: t('delete'), icon: '🎨' });
   if (ok) {
     const i = room.colors.findIndex(c => c.id === colorId);
     if (i !== -1) room.colors.splice(i, 1);
@@ -1005,31 +1050,31 @@ function renderRoomMaterialsSection(room) {
   
   const t1 = document.createElement('h3');
   t1.className = 'section-label';
-  t1.textContent = `إضافة مادة / خامة جديدة لـ ${room.name}`;
+  t1.textContent = t('add-material') + ` لـ ${room.name}`;
   body.appendChild(t1);
   
   const ar = document.createElement('div');
   ar.className = 'color-add-row';
   ar.style.cssText = 'flex-wrap:wrap;gap:12px;';
   ar.innerHTML = `
-    <div style="flex:1;min-width:200px;"><label class="field-label">اسم الخامة</label><input type="text" id="newMatName-${room.id}" placeholder="مثال: سيراميك بورسلان أبيض"></div>
+    <div style="flex:1;min-width:200px;"><label class="field-label">${t('project-name')}</label><input type="text" id="newMatName-${room.id}" placeholder="مثال: سيراميك بورسلان أبيض"></div>
     <div style="flex:1;min-width:150px;"><label class="field-label">نوع الخامة</label><select id="newMatType-${room.id}" style="width:100%;padding:10px 12px;border:1px solid var(--paper-line);border-radius:var(--radius);background:var(--input-bg);font-family:inherit;font-size:14px;"><option value="أرضيات">أرضيات</option><option value="جدران">جدران</option><option value="أسقف">أسقف</option><option value="إكسسوارات">إكسسوارات</option><option value="أثاث">أثاث</option><option value="إضاءة">إضاءة</option><option value="أخرى">أخرى</option></select></div>
     <div style="flex:1;min-width:150px;"><label class="field-label">الكود / الموديل</label><input type="text" id="newMatCode-${room.id}" placeholder="مثال: SK-2024-001"></div>
     <div style="flex:1;min-width:200px;"><label class="field-label">صورة الخامة</label><div id="matImageDropzone-${room.id}" style="border:2px dashed var(--paper-line);border-radius:var(--radius);padding:12px;text-align:center;cursor:pointer;background:var(--empty-bg);transition:all 0.2s;position:relative;"><span id="matImageLabel-${room.id}" style="color:var(--ink-soft);font-size:13px;"> اضغط لاختيار صورة</span><input type="file" id="newMatImage-${room.id}" accept="image/*" style="display:block !important;width:100%;height:100%;opacity:0;position:absolute;top:0;left:0;cursor:pointer;"></div><img id="matImagePreview-${room.id}" style="max-width:100%;max-height:100px;margin-top:8px;border-radius:4px;display:none;border:1px solid var(--paper-line);cursor:pointer;" title="اضغط للمعاينة"></div>
-    <button class="btn btn-brass" id="addMatBtn-${room.id}" style="margin-top:20px;">+ إضافة الخامة</button>`;
+    <button class="btn btn-brass" id="addMatBtn-${room.id}" style="margin-top:20px;">+ ${t('add-material')}</button>`;
   body.appendChild(ar);
   
   const fr = document.createElement('div');
   fr.style.cssText = 'margin:20px 0 14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;';
   fr.innerHTML = `
-    <div style="flex:1;min-width:200px;"><label class="field-label">البحث</label><input type="text" id="matSearch-${room.id}" placeholder="ابحث بالاسم أو الكود" style="padding:10px 12px;"></div>
-    <button class="btn btn-outline" id="clearMatSearch-${room.id}" style="margin-top:20px;">مسح</button>`;
+    <div style="flex:1;min-width:200px;"><label class="field-label">${t('search-material')}</label><input type="text" id="matSearch-${room.id}" placeholder="${t('search-material')}" style="padding:10px 12px;"></div>
+    <button class="btn btn-outline" id="clearMatSearch-${room.id}" style="margin-top:20px;">${t('clear')}</button>`;
   body.appendChild(fr);
   
   const t2 = document.createElement('h3');
   t2.className = 'section-label';
   t2.style.marginTop = '22px';
-  t2.textContent = `الخامات المختارة (${room.materials.length})`;
+  t2.textContent = t('selected-materials') + ` (${room.materials.length})`;
   body.appendChild(t2);
   
   const list = document.createElement('div');
@@ -1133,13 +1178,13 @@ function materialCard(room, m) {
   card.innerHTML = `
     ${imgH}
     <div class="color-fields">
-      <input type="text" value="${escapeAttr(m.name)}" placeholder="اسم الخامة" style="font-size:15px;font-weight:600;margin-bottom:8px;">
+      <input type="text" value="${escapeAttr(m.name)}" placeholder="${t('project-name')}" style="font-size:15px;font-weight:600;margin-bottom:8px;">
       <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;">
         ${m.code ? `<span class="color-hex mono" style="padding:4px 8px;background:var(--paper);border-radius:4px;font-size:11px;">${escapeHtml(m.code)}</span>` : ''}
       </div>
-      <textarea placeholder="ملاحظات...">${escapeHtml(m.note)}</textarea>
+      <textarea placeholder="${t('notes')}...">${escapeHtml(m.note)}</textarea>
     </div>
-    <button class="delete-btn">حذف هذه الخامة</button>`;
+    <button class="delete-btn" title="${t('delete-material')}">${t('delete-material')}</button>`;
   
   if (m.image) {
     const ip = card.querySelector('.mat-image-preview');
@@ -1159,7 +1204,7 @@ function materialCard(room, m) {
 }
 
 async function deleteMaterial(room, materialId) {
-  const ok = await showConfirm({ title: 'حذف الخامة؟', message: 'لا يمكن التراجع عن هذا الإجراء.', confirmLabel: 'حذف', icon: '📦' });
+  const ok = await showConfirm({ title: t('delete-material'), message: 'لا يمكن التراجع عن هذا الإجراء.', confirmLabel: t('delete'), icon: '📦' });
   if (ok) {
     const i = room.materials.findIndex(m => m.id === materialId);
     if (i !== -1) room.materials.splice(i, 1);
@@ -1177,7 +1222,7 @@ function renderSignatureSheet() {
   
   const t1 = document.createElement('h3');
   t1.className = 'section-label';
-  t1.textContent = 'ملخص المرجع';
+  t1.textContent = t('summary');
   body.appendChild(t1);
   
   const summary = document.createElement('div');
@@ -1186,7 +1231,7 @@ function renderSignatureSheet() {
   
   const totalColorsSig = state.rooms.reduce((s, r) => s + r.colors.length, 0);
   const totalMaterialsSig = state.rooms.reduce((s, r) => s + r.materials.length, 0);
-  [['عدد الغرف', state.rooms.length], ['إجمالي الصور', totalImgs], ['عدد الألوان', totalColorsSig], ['عدد الخامات', totalMaterialsSig]].forEach(([l, n]) => {
+  [[t('rooms-count'), state.rooms.length], [t('total-images'), totalImgs], [t('total-colors'), totalColorsSig], [t('total-materials'), totalMaterialsSig]].forEach(([l, n]) => {
     const c = document.createElement('div');
     c.className = 'summary-card';
     c.innerHTML = `<div class="n mono">${n}</div><div class="l">${l}</div>`;
@@ -1196,13 +1241,13 @@ function renderSignatureSheet() {
   
   const t2 = document.createElement('h3');
   t2.className = 'section-label';
-  t2.textContent = 'اعتماد العميل';
+  t2.textContent = t('approve-title');
   body.appendChild(t2);
   
   if (state.signature.approved) {
     const stamp = document.createElement('div');
     stamp.className = 'stamp';
-    stamp.innerHTML = `✅ تم الاعتماد من <strong>${escapeHtml(state.signature.name || 'العميل')}</strong> بتاريخ ${state.signature.approvedAt}`;
+    stamp.innerHTML = `${t('approved-stamp')} <strong>${escapeHtml(state.signature.name || t('client-name-label'))}</strong> بتاريخ ${state.signature.approvedAt}`;
     body.appendChild(stamp);
     
     if (state.signature.dataUrl) {
@@ -1215,19 +1260,19 @@ function renderSignatureSheet() {
     const reopen = document.createElement('button');
     reopen.className = 'btn btn-outline no-print';
     reopen.style.marginTop = '14px';
-    reopen.textContent = 'تعديل التوقيع';
+    reopen.textContent = t('edit-signature');
     reopen.onclick = () => { state.signature.approved = false; renderAll(); saveToLocalStorage(); };
     body.appendChild(reopen);
   } else {
     const hint = document.createElement('p');
     hint.className = 'top-hint';
-    hint.textContent = 'من فضلك اطلب من العميل مراجعة الصور والألوان، ثم التوقيع هنا.';
+    hint.textContent = t('approve-hint');
     body.appendChild(hint);
     
     const cw = document.createElement('div');
     const cl = document.createElement('label');
     cl.className = 'field-label';
-    cl.textContent = 'توقيع العميل';
+    cl.textContent = t('signature-label');
     cw.appendChild(cl);
     
     const canvas = document.createElement('canvas');
@@ -1238,14 +1283,14 @@ function renderSignatureSheet() {
     
     const sr = document.createElement('div');
     sr.className = 'sig-row no-print';
-    sr.innerHTML = '<button class="btn btn-outline" id="clearSig">مسح التوقيع</button>';
+    sr.innerHTML = `<button class="btn btn-outline" id="clearSig">${t('clear-signature')}</button>`;
     cw.appendChild(sr);
     body.appendChild(cw);
     
     const fr = document.createElement('div');
     fr.className = 'field-row';
     fr.style.marginTop = '16px';
-    fr.innerHTML = '<div class="field"><label class="field-label">اسم العميل</label><input type="text" id="sigName" placeholder="الاسم بالكامل"></div><div class="field"><label class="field-label">التاريخ</label><input type="date" id="sigDate"></div>';
+    fr.innerHTML = `<div class="field"><label class="field-label">${t('client-name-label')}</label><input type="text" id="sigName" placeholder="${t('client-placeholder')}"></div><div class="field"><label class="field-label">${t('date-label')}</label><input type="date" id="sigDate"></div>`;
     body.appendChild(fr);
     
     fr.querySelector('#sigName').value = state.signature.name;
@@ -1255,13 +1300,13 @@ function renderSignatureSheet() {
     
     const ab = document.createElement('div');
     ab.className = 'approve-box';
-    ab.innerHTML = '<input type="checkbox" id="agreeChk" style="margin-top:3px;"><label for="agreeChk" style="font-size:13.5px;color:var(--ink-soft);">أقرّ بأنني راجعت جميع الصور والألوان وأوافق على اعتمادها.</label>';
+    ab.innerHTML = `<input type="checkbox" id="agreeChk" style="margin-top:3px;"><label for="agreeChk" style="font-size:13.5px;color:var(--ink-soft);">${t('agree-label')}</label>`;
     body.appendChild(ab);
     
     const cb = document.createElement('button');
     cb.className = 'btn btn-primary no-print';
     cb.style.marginTop = '14px';
-    cb.textContent = '✔ تأكيد الاعتماد والتوقيع';
+    cb.textContent = t('confirm-signature');
     cb.onclick = () => {
       if (!body.querySelector('#agreeChk').checked) { showToast('وافق على الإقرار', 'error'); return; }
       if (!body.querySelector('#sigName').value.trim()) { showToast('اكتب اسم العميل', 'error'); return; }
@@ -1279,7 +1324,7 @@ function renderSignatureSheet() {
     requestAnimationFrame(() => setupSignaturePad(canvas, sr.querySelector('#clearSig')));
   }
   
-  return sheetShell('A-999', 'اعتماد التصميم', 'صفحة التوقيع النهائي', body);
+  return sheetShell('A-999', t('signature-title'), t('signature-desc'), body);
 }
 
 function isCanvasBlank(c) {
@@ -1341,9 +1386,9 @@ function showAddRoomModal() {
 
     // نضمن أن النصوص أصلية (لأنه قد تم تغييرها سابقاً بواسطة showPromptModal)
     ov.querySelector('.confirm-icon').textContent = '🏠';
-    ov.querySelector('.confirm-title').textContent = 'إضافة غرفة جديدة';
-    ov.querySelector('.confirm-msg').textContent = 'اكتب اسم الغرفة التي تريد إضافتها إلى المشروع.';
-    input.placeholder = 'مثال: غرفة الضيوف';
+    ov.querySelector('.confirm-title').textContent = t('add-room-title');
+    ov.querySelector('.confirm-msg').textContent = t('add-room-msg');
+    input.placeholder = t('add-room-placeholder');
     input.value = '';
     ov.classList.add('show');
 
@@ -1403,9 +1448,9 @@ document.getElementById('loadInput').onchange = async (e) => {
     if (!loaded || typeof loaded !== 'object') throw new Error('ملف غير صالح');
 
     const ok = await showConfirm({
-      title: 'فتح نسخة محفوظة؟',
+      title: t('load-json'),
       message: 'سيتم استبدال بيانات المشروع الحالي بالكامل ببيانات هذا الملف. لا يمكن التراجع عن هذا الإجراء.',
-      confirmLabel: 'فتح الملف',
+      confirmLabel: t('load-json'),
       icon: '📂'
     });
     if (!ok) { e.target.value = ''; return; }
@@ -1481,33 +1526,33 @@ function exportAsStandaloneHTML() {
     const watermarkURI = buildWatermarkDataURI();
 
     const tocLinks = [
-      { href: '#project-info', label: 'بيانات المشروع', icon: '📋' },
+      { href: '#project-info', label: t('project-info'), icon: '📋' },
       ...state.rooms.map((r, idx) => ({ href: '#room-' + idx, label: r.name, icon: '🏠' })),
-      ...(state.signature.approved ? [{ href: '#signature-sec', label: 'اعتماد التصميم', icon: '✍️' }] : [])
+      ...(state.signature.approved ? [{ href: '#signature-sec', label: t('signature-title'), icon: '✍️' }] : [])
     ];
 
     // بناء كل غرفة مع أكورديون
     const roomsHtml = state.rooms.map((room, idx) => {
       // قسم الصور والملاحظات
       const imagesHtml = room.images.length ? `
-        <div class="sub-label">الصور المرجعية (${room.images.length})</div>
+        <div class="sub-label">${t('images-ref')} (${room.images.length})</div>
         <div class="images-grid" data-room="${idx}">
           ${room.images.map((img, i) => `
             <div class="image-card" onclick="openLB(${idx},${i})">
               <div class="img-wrapper">
                 <img src="${img.dataUrl}" loading="lazy" alt="صورة ${i + 1}">
                 <div class="overlay"><span class="overlay-icon">🔍</span></div>
-                <span class="image-badge ${img.label === 'أساسي' ? '' : 'alt'}">${img.label === 'أساسي' ? 'أساسي' : 'بديل'}</span>
+                <span class="image-badge ${img.label === 'أساسي' ? '' : 'alt'}">${img.label === 'أساسي' ? t('primary') : t('alternative')}</span>
               </div>
               <div class="caption"><strong>صورة ${i + 1}</strong></div>
             </div>`).join('')}
         </div>` : `<div class="empty-note">لا توجد صور مرفوعة لهذه الغرفة بعد.</div>`;
 
-      const notesHtml = room.notes ? `<div class="sub-label">ملاحظات</div><div class="notes">${escapeHtml(room.notes)}</div>` : '';
+      const notesHtml = room.notes ? `<div class="sub-label">${t('notes')}</div><div class="notes">${escapeHtml(room.notes)}</div>` : '';
 
       // قسم المواد
       const materialsHtml = room.materials.length ? `
-        <div class="sub-label">المواد والخامات (${room.materials.length})</div>
+        <div class="sub-label">${t('room-materials')} (${room.materials.length})</div>
         <div class="materials-grid">
           ${room.materials.map(m => `
             <div class="material-card">
@@ -1522,7 +1567,7 @@ function exportAsStandaloneHTML() {
 
       // قسم الألوان
       const colorsHtml = room.colors.length ? `
-        <div class="sub-label">الألوان والدهانات (${room.colors.length})</div>
+        <div class="sub-label">${t('room-colors')} (${room.colors.length})</div>
         <div class="colors-grid">
           ${room.colors.map(c => `
             <div class="color-card">
@@ -1538,20 +1583,20 @@ function exportAsStandaloneHTML() {
         <div class="room" id="room-${idx}">
           <div class="room-head"><h3>${escapeHtml(room.name)}</h3></div>
           <details open>
-            <summary>🏠 بيانات الغرفة (${room.images.length})</summary>
+            <summary>🏠 ${t('room-data')} (${room.images.length})</summary>
             <div class="details-content">
               ${imagesHtml}
               ${notesHtml}
             </div>
           </details>
           <details>
-            <summary>🧱 المواد والخامات (${room.materials.length})</summary>
+            <summary>🧱 ${t('room-materials')} (${room.materials.length})</summary>
             <div class="details-content">
               ${materialsHtml}
             </div>
           </details>
           <details>
-            <summary>🎨 الألوان والدهانات (${room.colors.length})</summary>
+            <summary>🎨 ${t('room-colors')} (${room.colors.length})</summary>
             <div class="details-content">
               ${colorsHtml}
             </div>
@@ -2121,28 +2166,28 @@ details[open] summary {
   </div>` : ''}
 
   <div class="section-block" id="project-info">
-    <div class="section-head"><h2>📋 بيانات المشروع</h2></div>
+    <div class="section-head"><h2>📋 ${t('project-info')}</h2></div>
     <div class="info-grid">
-      <div class="info-card"><div class="label">اسم المشروع</div><div class="value">${escapeHtml(projectName)}</div></div>
-      <div class="info-card"><div class="label">العميل</div><div class="value">${escapeHtml(state.project.client || '-')}</div></div>
-      <div class="info-card"><div class="label">المصمم</div><div class="value">${escapeHtml(state.project.engineer || '-')}</div></div>
-      <div class="info-card"><div class="label">التاريخ</div><div class="value">${state.project.date || '-'}</div></div>
+      <div class="info-card"><div class="label">${t('project-name')}</div><div class="value">${escapeHtml(projectName)}</div></div>
+      <div class="info-card"><div class="label">${t('client-name-label')}</div><div class="value">${escapeHtml(state.project.client || '-')}</div></div>
+      <div class="info-card"><div class="label">${t('engineer-name')}</div><div class="value">${escapeHtml(state.project.engineer || '-')}</div></div>
+      <div class="info-card"><div class="label">${t('date-label')}</div><div class="value">${state.project.date || '-'}</div></div>
     </div>
   </div>
 
   <div class="section-block">
-    <div class="section-head"><h2>🏠 الغرف</h2><span class="count">${state.rooms.length} غرفة</span></div>
+    <div class="section-head"><h2>🏠 ${t('rooms')}</h2><span class="count">${state.rooms.length} غرفة</span></div>
     ${roomsHtml}
   </div>
 
   ${state.signature.approved ? `
   <div class="section-block" id="signature-sec">
-    <div class="section-head"><h2>✍️ اعتماد العميل</h2></div>
+    <div class="section-head"><h2>✍️ ${t('signature-title')}</h2></div>
     <div class="signature-box">
       <div class="approval-stamp">✓ معتمد رسمياً</div>
       <div class="approval-row">
-        <div class="field"><div class="l">تم الاعتماد من</div><div class="v">${escapeHtml(state.signature.name)}</div></div>
-        <div class="field"><div class="l">تاريخ الاعتماد</div><div class="v">${state.signature.approvedAt}</div></div>
+        <div class="field"><div class="l">${t('client-name-label')}</div><div class="v">${escapeHtml(state.signature.name)}</div></div>
+        <div class="field"><div class="l">${t('date-label')}</div><div class="v">${state.signature.approvedAt}</div></div>
       </div>
       ${state.signature.dataUrl ? `<img src="${state.signature.dataUrl}" alt="توقيع العميل"><div class="sig-caption">توقيع العميل</div>` : ''}
     </div>
@@ -2474,6 +2519,16 @@ document.addEventListener('keydown', e => {
   else if (e.key === 'ArrowLeft') lbNext();
 });
 
+// زر الشاشة الكاملة
+document.getElementById('lightboxFullscreen').addEventListener('click', () => {
+  const img = document.getElementById('lightboxImg');
+  if (img.requestFullscreen) {
+    img.requestFullscreen();
+  } else if (img.webkitRequestFullscreen) {
+    img.webkitRequestFullscreen();
+  }
+});
+
 /* --------------------------------------------------------------------------
 28. إدارة المشاريع (نافذة القائمة)
 -------------------------------------------------------------------------- */
@@ -2482,7 +2537,7 @@ function renderProjectManager() {
   const list = document.getElementById('projectList');
   list.innerHTML = '';
   if (projects.length === 0) {
-    list.innerHTML = '<div class="no-projects-msg">لا توجد مشاريع محفوظة</div>';
+    list.innerHTML = '<div class="no-projects-msg">' + t('no-projects') + '</div>';
   } else {
     projects.forEach(p => {
       const item = document.createElement('div');
@@ -2495,7 +2550,8 @@ function renderProjectManager() {
       if (p.id !== currentProjectId) {
         const switchBtn = document.createElement('button');
         switchBtn.className = 'switch-btn';
-        switchBtn.textContent = 'تبديل';
+        switchBtn.textContent = t('switch-project');
+        switchBtn.title = t('switch-project');
         switchBtn.onclick = () => {
           loadProject(p.id);
           renderProjectManager();
@@ -2504,12 +2560,13 @@ function renderProjectManager() {
       }
       const deleteBtn = document.createElement('button');
       deleteBtn.className = 'delete-btn';
-      deleteBtn.textContent = 'حذف';
+      deleteBtn.textContent = t('delete');
+      deleteBtn.title = t('delete');
       deleteBtn.onclick = async () => {
         const ok = await showConfirm({
-          title: 'حذف المشروع؟',
-          message: 'هل أنت متأكد من حذف مشروع "' + p.name + '"؟',
-          confirmLabel: 'حذف',
+          title: t('delete-project-confirm'),
+          message: t('delete-project-msg').replace('{name}', p.name),
+          confirmLabel: t('delete'),
           icon: '🗑️'
         });
         if (ok) {
@@ -2518,7 +2575,16 @@ function renderProjectManager() {
         }
       };
       actions.appendChild(deleteBtn);
+      
+      // عرض التواريخ
+      const datesSpan = document.createElement('div');
+      datesSpan.className = 'dates';
+      const created = p.createdAt ? new Date(p.createdAt).toLocaleDateString() : '';
+      const updated = p.updatedAt ? new Date(p.updatedAt).toLocaleDateString() : '';
+      datesSpan.textContent = (created ? `🕒 ${created}` : '') + (updated ? ` ✏️ ${updated}` : '');
+      
       item.appendChild(nameSpan);
+      item.appendChild(datesSpan);
       item.appendChild(actions);
       list.appendChild(item);
     });
@@ -2549,9 +2615,9 @@ function showPromptModal(title, placeholder) {
 
     // تعديل النصوص للطلب
     icon.textContent = '📁';
-    titleEl.textContent = title || 'اسم المشروع الجديد';
-    msg.textContent = placeholder || 'أدخل اسم المشروع';
-    input.placeholder = placeholder || 'اسم المشروع';
+    titleEl.textContent = title || t('new-project-title');
+    msg.textContent = placeholder || t('new-project-msg');
+    input.placeholder = placeholder || t('new-project-placeholder');
     input.value = '';
     ov.classList.add('show');
 
@@ -2593,13 +2659,292 @@ document.getElementById('projectManagerOverlay').addEventListener('click', (e) =
 document.getElementById('newProjectBtn').onclick = async () => {
   // إغلاق نافذة إدارة المشاريع أولاً
   closeProjectManager();
-  const name = await showPromptModal('اسم المشروع الجديد', 'أدخل اسم المشروع');
+  const name = await showPromptModal(t('new-project-title'), t('new-project-msg'));
   if (name && name.trim()) {
     createNewProject(name.trim());
   }
 };
 
 /* --------------------------------------------------------------------------
-29. بدء التطبيق
+29. نظام الترجمة (إضافة جديدة)
 -------------------------------------------------------------------------- */
-renderAll();
+const translations = {
+  ar: {
+    'app-title': 'شطّب — دفتر مرجع التصميم',
+    'app-short': 'شطّب',
+    'app-name': 'شطّب',
+    'app-subtitle': 'دفتر مرجع التصميم',
+    'project-data': 'بيانات المشروع',
+    'mode': 'الوضع',
+    'project-progress': 'تقدم المشروع',
+    'project-panel': 'لوحة المشروع',
+    'rooms': 'الغرف',
+    'add-room': '+ إضافة غرفة أخرى',
+    'final-approval': 'الاعتماد النهائي',
+    'save-json': '⭳ حفظ نسخة للتعديل (JSON)',
+    'load-json': 'فتح نسخة محفوظة',
+    'manage-projects': '📁 إدارة المشاريع',
+    'manage-projects-title': '📁 إدارة المشاريع',
+    'new-project': '+ مشروع جديد',
+    'close': 'إغلاق',
+    'cancel': 'إلغاء',
+    'confirm': 'تأكيد',
+    'are-you-sure': 'هل أنت متأكد؟',
+    'add-room-title': 'إضافة غرفة جديدة',
+    'add-room-msg': 'اكتب اسم الغرفة التي تريد إضافتها إلى المشروع.',
+    'add-room-btn': '+ إضافة الغرفة',
+    'lightbox-hint': 'اسحب للتكبير أو استخدم الأسهم للتنقل — Esc للإغلاق',
+    'loading': 'جاري إنشاء ملف PDF...',
+    'project-info': 'بيانات المشروع',
+    'project-sheet-desc': 'صفحة الغلاف',
+    'room-ref': 'مرجع الصور والخامات والألوان',
+    'signature-title': 'اعتماد التصميم',
+    'signature-desc': 'صفحة التوقيع النهائي',
+    'add-color': 'إضافة لون / دهان جديد',
+    'add-material': 'إضافة مادة / خامة جديدة',
+    'search-color': 'البحث عن لون',
+    'search-material': 'البحث',
+    'clear': 'مسح',
+    'selected-colors': 'الألوان المختارة',
+    'selected-materials': 'الخامات المختارة',
+    'room-data': 'بيانات الغرفة',
+    'room-materials': 'المواد والخامات',
+    'room-colors': 'الألوان والدهانات',
+    'images-ref': 'الصور المرجعية',
+    'notes': 'ملاحظات',
+    'delete-room': 'حذف هذه الغرفة',
+    'delete-color': 'حذف هذا اللون',
+    'delete-material': 'حذف هذه الخامة',
+    'copy-hex': 'انسخ الكود',
+    'copied': '✓ تم النسخ',
+    'toggle-label': 'تبديل: أساسي / بديل',
+    'primary': 'أساسي',
+    'alternative': 'بديل',
+    'drag-drop-hint': 'أو اسحب الصور وأفلتها هنا',
+    'click-to-upload': 'اضغط هنا لرفع صور',
+    'approve-title': 'اعتماد العميل',
+    'approve-hint': 'من فضلك اطلب من العميل مراجعة الصور والألوان، ثم التوقيع هنا.',
+    'signature-label': 'توقيع العميل',
+    'clear-signature': 'مسح التوقيع',
+    'client-name': 'اسم العميل',
+    'date': 'التاريخ',
+    'agree-label': 'أقرّ بأنني راجعت جميع الصور والألوان وأوافق على اعتمادها.',
+    'confirm-signature': '✔ تأكيد الاعتماد والتوقيع',
+    'edit-signature': 'تعديل التوقيع',
+    'approved-stamp': '✅ تم الاعتماد من',
+    'summary': 'ملخص المرجع',
+    'rooms-count': 'عدد الغرف',
+    'total-images': 'إجمالي الصور',
+    'total-colors': 'عدد الألوان',
+    'total-materials': 'عدد الخامات',
+    'approval-status': 'حالة الاعتماد',
+    'approved': 'معتمد ✓',
+    'pending': 'بانتظار التوقيع',
+    'created-at': 'تاريخ الإنشاء',
+    'updated-at': 'آخر تعديل',
+    'no-projects': 'لا توجد مشاريع محفوظة',
+    'delete-project-confirm': 'حذف المشروع؟',
+    'delete-project-msg': 'هل أنت متأكد من حذف مشروع "{name}"؟',
+    'switch-project': 'تبديل',
+    'delete': 'حذف',
+    'project-name': 'اسم المشروع',
+    'client-name-label': 'اسم العميل',
+    'engineer-name': 'اسم المهندس / المصمم',
+    'date-label': 'التاريخ',
+    'project-name-placeholder': 'مثال: شقة التجمع الخامس',
+    'client-placeholder': 'اسم العميل',
+    'engineer-placeholder': 'اسمك',
+    'room-name-label': 'اسم الغرفة:',
+    'add-room-placeholder': 'مثال: غرفة الضيوف',
+    'new-project-title': 'اسم المشروع الجديد',
+    'new-project-msg': 'أدخل اسم المشروع',
+    'new-project-placeholder': 'اسم المشروع',
+    'enter-name': 'أدخل اسم المشروع',
+    'fullscreen': 'شاشة كاملة',
+    'exit-fullscreen': 'خروج من الشاشة الكاملة',
+    'default-room-1': 'غرفة النوم',
+    'default-room-2': 'الحمام',
+    'default-room-3': 'المطبخ',
+    'default-room-4': 'الصالة',
+  },
+  en: {
+    'app-title': 'Shateb — Design Reference Book',
+    'app-short': 'Shateb',
+    'app-name': 'Shateb',
+    'app-subtitle': 'Design Reference Book',
+    'project-data': 'Project Data',
+    'mode': 'Mode',
+    'project-progress': 'Project Progress',
+    'project-panel': 'Project Panel',
+    'rooms': 'Rooms',
+    'add-room': '+ Add Another Room',
+    'final-approval': 'Final Approval',
+    'save-json': '⭳ Save as JSON',
+    'load-json': 'Load Backup',
+    'manage-projects': '📁 Manage Projects',
+    'manage-projects-title': '📁 Manage Projects',
+    'new-project': '+ New Project',
+    'close': 'Close',
+    'cancel': 'Cancel',
+    'confirm': 'Confirm',
+    'are-you-sure': 'Are you sure?',
+    'add-room-title': 'Add New Room',
+    'add-room-msg': 'Enter the name of the room you want to add to the project.',
+    'add-room-btn': '+ Add Room',
+    'lightbox-hint': 'Drag to zoom or use arrows to navigate — Esc to close',
+    'loading': 'Generating PDF...',
+    'project-info': 'Project Info',
+    'project-sheet-desc': 'Cover Page',
+    'room-ref': 'Images, Materials & Colors Reference',
+    'signature-title': 'Design Approval',
+    'signature-desc': 'Final Signature Page',
+    'add-color': 'Add New Color / Paint',
+    'add-material': 'Add New Material',
+    'search-color': 'Search Color',
+    'search-material': 'Search',
+    'clear': 'Clear',
+    'selected-colors': 'Selected Colors',
+    'selected-materials': 'Selected Materials',
+    'room-data': 'Room Data',
+    'room-materials': 'Materials & Finishes',
+    'room-colors': 'Colors & Paints',
+    'images-ref': 'Reference Images',
+    'notes': 'Notes',
+    'delete-room': 'Delete This Room',
+    'delete-color': 'Delete This Color',
+    'delete-material': 'Delete This Material',
+    'copy-hex': 'Copy Code',
+    'copied': '✓ Copied',
+    'toggle-label': 'Toggle: Primary / Alternative',
+    'primary': 'Primary',
+    'alternative': 'Alternative',
+    'drag-drop-hint': 'or drag & drop images here',
+    'click-to-upload': 'Click here to upload images for',
+    'approve-title': 'Client Approval',
+    'approve-hint': 'Please ask the client to review the images and colors, then sign below.',
+    'signature-label': 'Client Signature',
+    'clear-signature': 'Clear Signature',
+    'client-name': 'Client Name',
+    'date': 'Date',
+    'agree-label': 'I confirm that I have reviewed all images and colors and approve them.',
+    'confirm-signature': '✔ Confirm & Sign',
+    'edit-signature': 'Edit Signature',
+    'approved-stamp': '✅ Approved by',
+    'summary': 'Summary',
+    'rooms-count': 'Rooms',
+    'total-images': 'Total Images',
+    'total-colors': 'Colors',
+    'total-materials': 'Materials',
+    'approval-status': 'Approval Status',
+    'approved': 'Approved ✓',
+    'pending': 'Pending',
+    'created-at': 'Created',
+    'updated-at': 'Last Modified',
+    'no-projects': 'No saved projects',
+    'delete-project-confirm': 'Delete Project?',
+    'delete-project-msg': 'Are you sure you want to delete project "{name}"?',
+    'switch-project': 'Switch',
+    'delete': 'Delete',
+    'project-name': 'Project Name',
+    'client-name-label': 'Client Name',
+    'engineer-name': 'Engineer / Designer',
+    'date-label': 'Date',
+    'project-name-placeholder': 'e.g. Fifth Settlement Apartment',
+    'client-placeholder': 'Client Name',
+    'engineer-placeholder': 'Your Name',
+    'room-name-label': 'Room Name:',
+    'add-room-placeholder': 'e.g. Living Room',
+    'new-project-title': 'New Project Name',
+    'new-project-msg': 'Enter project name',
+    'new-project-placeholder': 'Project Name',
+    'enter-name': 'Enter project name',
+    'fullscreen': 'Fullscreen',
+    'exit-fullscreen': 'Exit Fullscreen',
+    'default-room-1': 'Bedroom',
+    'default-room-2': 'Bathroom',
+    'default-room-3': 'Kitchen',
+    'default-room-4': 'Living Room',
+  }
+};
+
+let currentLang = localStorage.getItem('shateb_lang') || 'ar';
+
+function t(key) {
+  return translations[currentLang]?.[key] || translations['ar'][key] || key;
+}
+
+function setLanguage(lang, skipRender = false) {
+  if (!translations[lang]) return;
+  
+  // حفظ الأسماء القديمة قبل التغيير
+  const oldLang = currentLang;
+  const oldDefaultNames = getDefaultRoomNames(oldLang);
+  const newDefaultNames = getDefaultRoomNames(lang);
+  
+  // تحديث اللغة
+  currentLang = lang;
+  localStorage.setItem('shateb_lang', lang);
+  document.documentElement.lang = lang;
+  document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+  
+  // تحديث أسماء الغرف الأساسية إذا لم يغيّرها المستخدم
+  state.rooms.forEach((room, index) => {
+    // نتحقق من أن اسم الغرفة الحالي يطابق الاسم الافتراضي القديم
+    if (index < oldDefaultNames.length && room.name === oldDefaultNames[index]) {
+      room.name = newDefaultNames[index] || room.name;
+    }
+  });
+  
+  // تحديث زر اللغة
+  const langBtn = document.getElementById('langToggle');
+  if (langBtn) langBtn.textContent = lang === 'ar' ? '🌐 ع' : '🌐 En';
+  
+  applyTranslations();
+  if (!skipRender) renderAll();
+}
+
+function applyTranslations() {
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    const translation = t(key);
+    if (translation && translation !== key) {
+      if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
+        if (el.placeholder) el.placeholder = translation;
+      } else {
+        el.textContent = translation;
+      }
+    }
+  });
+  document.querySelectorAll('[data-i18n-title]').forEach(el => {
+    const key = el.getAttribute('data-i18n-title');
+    const translation = t(key);
+    if (translation && translation !== key) {
+      el.title = translation;
+    }
+  });
+}
+
+// ربط زر اللغة
+document.getElementById('langToggle').addEventListener('click', () => {
+  const newLang = currentLang === 'ar' ? 'en' : 'ar';
+  setLanguage(newLang);
+});
+
+/* --------------------------------------------------------------------------
+30. بدء التطبيق (تم تعديله لاستدعاء setLanguage)
+-------------------------------------------------------------------------- */
+// renderAll() يتم استدعاؤها من loadFromLocalStorage أو من بداية التحميل
+// لكننا نضيف استدعاء setLanguage في load event
+window.addEventListener('load', () => {
+  // تم نقله إلى الأعلى
+});
+
+// نضيف استدعاء إضافي لضمان الترجمة بعد التحميل الكامل
+document.addEventListener('DOMContentLoaded', () => {
+  applyTranslations();
+});
+
+// نضيف مستمع لتغيير حجم الشاشة لتحديث بعض العناصر إن لزم
+window.addEventListener('resize', () => {
+  // يمكن إضافة أي منطق إضافي هنا
+});

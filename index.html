@@ -5,13 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="شطّب — دفتر مرجع التصميم لتوثيق اختيارات التشطيب والديكور قبل التنفيذ: الغرف، الصور المرجعية، الألوان، الخامات، واعتماد العميل.">
   <meta name="theme-color" content="#1b2a41">
-  <title>شطّب — دفتر مرجع التصميم</title>
+  <title data-i18n="app-title">شطّب — دفتر مرجع التصميم</title>
   <link rel="icon" id="dynamicFavicon" href="">
   
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Tajawal:wght@400;500;700;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
   
+  <!-- إضافة أيقونة لمتصفح Safari عند التثبيت -->
+  <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%231e3a5f'/%3E%3Ctext x='32' y='43' font-family='Tajawal, Arial, sans-serif' font-size='30' font-weight='900' fill='%23f5f1e8' text-anchor='middle'%3Eش%3C/text%3E%3C/svg%3E">
 
   <link rel="stylesheet" href="style.css">
 </head>
@@ -22,27 +24,29 @@
         <span></span><span></span><span></span>
       </button>
       <div class="mobile-topbar-title">
-        <span class="mobile-topbar-kicker brand-logo-mobile">شطّب</span>
-        <span id="mobileTopbarTab">بيانات المشروع</span>
+        <span class="mobile-topbar-kicker brand-logo-mobile" data-i18n="app-short">شطّب</span>
+        <span id="mobileTopbarTab" data-i18n="project-data">بيانات المشروع</span>
       </div>
     </div>
     <div class="drawer-overlay no-print" id="drawerOverlay"></div>
     
     <aside class="sidebar" id="sidebar">
       <div class="theme-toggle-wrapper">
-        <span class="theme-toggle-label">الوضع</span>
-        <button class="theme-toggle" id="themeToggle" title="تبديل الوضع الليلي"></button>
+        <!-- إضافة زر تبديل اللغة -->
+        <button class="lang-toggle" id="langToggle" title="تبديل اللغة / Switch Language" aria-label="تبديل اللغة">🌐 ع</button>
+        <span class="theme-toggle-label" data-i18n="mode">الوضع</span>
+        <button class="theme-toggle" id="themeToggle" title="تبديل الوضع الليلي" aria-label="تبديل الوضع الليلي"></button>
       </div>
       
       <div class="brand">
-        <h1 class="brand-logo">شطّب</h1>
-        <span class="brand-subtitle">دفتر مرجع التصميم</span>
+        <h1 class="brand-logo" data-i18n="app-name">شطّب</h1>
+        <span class="brand-subtitle" data-i18n="app-subtitle">دفتر مرجع التصميم</span>
         <small id="projectSubtitle">بدون اسم مشروع بعد</small>
       </div>
 
       <div class="progress-container">
         <div class="progress-label">
-          <span>تقدم المشروع</span>
+          <span data-i18n="project-progress">تقدم المشروع</span>
           <span id="progressPercent">0%</span>
         </div>
         <div class="progress-bar">
@@ -50,20 +54,20 @@
         </div>
       </div>
 
-      <div class="nav-group-label">لوحة المشروع</div>
+      <div class="nav-group-label" data-i18n="project-panel">لوحة المشروع</div>
       <div class="nav-scroll" id="navProject"></div>
 
-      <div class="nav-group-label">الغرف</div>
+      <div class="nav-group-label" data-i18n="rooms">الغرف</div>
       <div class="nav-scroll" id="navRooms"></div>
-      <button class="add-room-btn" id="addRoomBtn">+ إضافة غرفة أخرى</button>
+      <button class="add-room-btn" id="addRoomBtn" title="إضافة غرفة جديدة" data-i18n="add-room">+ إضافة غرفة أخرى</button>
 
-      <div class="nav-group-label">الاعتماد النهائي</div>
+      <div class="nav-group-label" data-i18n="final-approval">الاعتماد النهائي</div>
       <div class="nav-scroll" id="navEnd"></div>
 
       <div class="sidebar-footer no-print">
-        <button class="ghost-btn" id="saveProjectBtn">⭳ حفظ نسخة للتعديل (JSON)</button>
-        <button class="ghost-btn" id="loadProjectBtn">فتح نسخة محفوظة</button>
-        <button class="ghost-btn" id="manageProjectsBtn">📁 إدارة المشاريع</button>
+        <button class="ghost-btn" id="saveProjectBtn" title="حفظ نسخة JSON للتعديل" data-i18n="save-json">⭳ حفظ نسخة للتعديل (JSON)</button>
+        <button class="ghost-btn" id="loadProjectBtn" title="فتح نسخة محفوظة" data-i18n="load-json">فتح نسخة محفوظة</button>
+        <button class="ghost-btn" id="manageProjectsBtn" title="إدارة المشاريع" data-i18n="manage-projects">📁 إدارة المشاريع</button>
         <input type="file" id="loadInput" accept=".json,application/json">
       </div>
     </aside>
@@ -80,11 +84,11 @@
   <div class="confirm-overlay no-print" id="confirmOverlay">
     <div class="confirm-box">
       <div class="confirm-icon" id="confirmIcon"></div>
-      <div class="confirm-title" id="confirmTitle">هل أنت متأكد؟</div>
+      <div class="confirm-title" id="confirmTitle" data-i18n="are-you-sure">هل أنت متأكد؟</div>
       <div class="confirm-msg" id="confirmMsg"></div>
       <div class="confirm-actions">
-        <button class="btn btn-outline" id="confirmCancelBtn">إلغاء</button>
-        <button class="btn" id="confirmOkBtn" style="background:var(--danger); color:#fff;">تأكيد</button>
+        <button class="btn btn-outline" id="confirmCancelBtn" data-i18n="cancel">إلغاء</button>
+        <button class="btn" id="confirmOkBtn" style="background:var(--danger); color:#fff;" data-i18n="confirm">تأكيد</button>
       </div>
     </div>
   </div>
@@ -92,12 +96,12 @@
   <div class="confirm-overlay no-print" id="addRoomOverlay">
     <div class="confirm-box">
       <div class="confirm-icon">🏠</div>
-      <div class="confirm-title">إضافة غرفة جديدة</div>
-      <div class="confirm-msg">اكتب اسم الغرفة التي تريد إضافتها إلى المشروع.</div>
+      <div class="confirm-title" data-i18n="add-room-title">إضافة غرفة جديدة</div>
+      <div class="confirm-msg" data-i18n="add-room-msg">اكتب اسم الغرفة التي تريد إضافتها إلى المشروع.</div>
       <input type="text" id="addRoomInput" class="confirm-input" placeholder="مثال: غرفة الضيوف" maxlength="60">
       <div class="confirm-actions">
-        <button class="btn btn-outline" id="addRoomCancelBtn">إلغاء</button>
-        <button class="btn btn-primary" id="addRoomOkBtn">+ إضافة الغرفة</button>
+        <button class="btn btn-outline" id="addRoomCancelBtn" data-i18n="cancel">إلغاء</button>
+        <button class="btn btn-primary" id="addRoomOkBtn" data-i18n="add-room-btn">+ إضافة الغرفة</button>
       </div>
     </div>
   </div>
@@ -112,14 +116,16 @@
       <img id="lightboxImg" alt="صورة مكبرة" draggable="false">
     </div>
     <button class="lightbox-nav lightbox-next" id="lightboxNext" aria-label="الصورة التالية">›</button>
-    <div class="lightbox-hint mono">اسحب للتكبير أو استخدم الأسهم للتنقل — Esc للإغلاق</div>
+    <!-- زر الشاشة الكاملة -->
+    <button class="lightbox-fullscreen" id="lightboxFullscreen" title="شاشة كاملة" aria-label="شاشة كاملة">⛶</button>
+    <div class="lightbox-hint mono" data-i18n="lightbox-hint">اسحب للتكبير أو استخدم الأسهم للتنقل — Esc للإغلاق</div>
   </div>
 
   <div class="autosave-indicator" id="autosaveIndicator">✓ تم الحفظ التلقائي</div>
 
   <div class="loading-overlay hidden" id="loadingOverlay">
     <div class="loading-spinner"></div>
-    <div id="loadingText">جاري إنشاء ملف PDF...</div>
+    <div id="loadingText" data-i18n="loading">جاري إنشاء ملف PDF...</div>
     <div class="loading-progress" id="loadingProgress"></div>
   </div>
 
@@ -131,11 +137,11 @@
   <!-- نافذة إدارة المشاريع (جديدة) -->
   <div class="project-manager-overlay no-print" id="projectManagerOverlay">
     <div class="project-manager-box">
-      <h2>📁 إدارة المشاريع</h2>
+      <h2 data-i18n="manage-projects-title">📁 إدارة المشاريع</h2>
       <div class="project-list" id="projectList"></div>
       <div class="project-manager-actions">
-        <button class="btn btn-brass" id="newProjectBtn">+ مشروع جديد</button>
-        <button class="btn btn-outline" id="closeProjectManagerBtn">إغلاق</button>
+        <button class="btn btn-brass" id="newProjectBtn" data-i18n="new-project">+ مشروع جديد</button>
+        <button class="btn btn-outline" id="closeProjectManagerBtn" data-i18n="close">إغلاق</button>
       </div>
     </div>
   </div>
