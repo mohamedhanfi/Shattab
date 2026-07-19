@@ -12,11 +12,11 @@ window.addEventListener('load', () => {
 });
 
 /* --------------------------------------------------------------------------
-2. التخزين المحلي والحفظ التلقائي
+2. التخزين المحلي والحفظ التلقائي (تمت إعادة كتابتها لدعم المشاريع المتعددة)
 -------------------------------------------------------------------------- */
 function saveToLocalStorage() {
   try {
-    localStorage.setItem('designReferenceBook', JSON.stringify(state));
+    saveCurrentProject();
     showAutosaveIndicator();
     return true;
   } catch (err) {
@@ -30,20 +30,26 @@ function saveToLocalStorage() {
 
 function loadFromLocalStorage() {
   try {
-    const saved = localStorage.getItem('designReferenceBook');
-    if (saved) {
-      const loaded = JSON.parse(saved);
-      if (loaded.project) Object.assign(state.project, loaded.project);
-      if (loaded.rooms) state.rooms = loaded.rooms;
-      if (loaded.colors) state.colors = loaded.colors;
-      if (loaded.materials) state.materials = loaded.materials;
-      if (loaded.signature) Object.assign(state.signature, loaded.signature);
+    loadProjectsList();
+    const project = projects.find(p => p.id === currentProjectId);
+    if (project) {
+      const data = project.data;
+      if (data.project) Object.assign(state.project, data.project);
+      if (data.rooms) state.rooms = data.rooms;
+      if (data.colors) state.colors = data.colors;
+      if (data.materials) state.materials = data.materials;
+      if (data.signature) Object.assign(state.signature, data.signature);
       migrateLegacyGlobalData();
       renderAll();
+    } else {
+      // لو حدث خطأ، ننشئ مشروعاً جديداً
+      createNewProject('مشروع جديد');
     }
   } catch (err) {
-    console.warn('Load failed, clearing corrupted data:', err);
-    localStorage.removeItem('designReferenceBook');
+    console.warn('Load failed, resetting state:', err);
+    localStorage.removeItem('shateb_projects');
+    localStorage.removeItem('shateb_current_project');
+    loadProjectsList();
   }
 }
 
@@ -141,6 +147,147 @@ let currentTab = 'project';
 
 function sheetTagForRoom(index) {
   return 'A-' + (101 + index);
+}
+
+/* --------------------------------------------------------------------------
+4ب. إدارة المشاريع المتعددة (جديدة)
+-------------------------------------------------------------------------- */
+let projects = [];
+let currentProjectId = null;
+const PROJECTS_KEY = 'shateb_projects';
+const CURRENT_KEY = 'shateb_current_project';
+
+function loadProjectsList() {
+  try {
+    const stored = localStorage.getItem(PROJECTS_KEY);
+    if (stored) {
+      projects = JSON.parse(stored);
+      if (!Array.isArray(projects)) projects = [];
+    } else {
+      projects = [];
+    }
+  } catch (e) {
+    projects = [];
+  }
+  if (projects.length === 0) {
+    const defaultName = state.project.name || 'مشروع جديد';
+    const newProject = {
+      id: 'proj_' + Date.now(),
+      name: defaultName,
+      data: JSON.parse(JSON.stringify(state))
+    };
+    projects.push(newProject);
+    saveProjectsList();
+    currentProjectId = newProject.id;
+    localStorage.setItem(CURRENT_KEY, currentProjectId);
+  } else {
+    currentProjectId = localStorage.getItem(CURRENT_KEY);
+    if (!currentProjectId || !projects.find(p => p.id === currentProjectId)) {
+      currentProjectId = projects[0].id;
+      localStorage.setItem(CURRENT_KEY, currentProjectId);
+    }
+  }
+}
+
+function saveProjectsList() {
+  localStorage.setItem(PROJECTS_KEY, JSON.stringify(projects));
+}
+
+function loadProject(projectId) {
+  const project = projects.find(p => p.id === projectId);
+  if (!project) return false;
+  saveCurrentProject();
+  const data = project.data;
+  Object.assign(state.project, data.project);
+  state.rooms = data.rooms;
+  state.colors = data.colors || [];
+  state.materials = data.materials || [];
+  if (data.signature) Object.assign(state.signature, data.signature);
+  currentProjectId = projectId;
+  localStorage.setItem(CURRENT_KEY, currentProjectId);
+  renderAll();
+  showToast('تم التبديل إلى مشروع "' + project.name + '"', 'success');
+  return true;
+}
+
+function saveCurrentProject() {
+  if (!currentProjectId) return;
+  const project = projects.find(p => p.id === currentProjectId);
+  if (!project) return;
+  project.data = {
+    project: JSON.parse(JSON.stringify(state.project)),
+    rooms: JSON.parse(JSON.stringify(state.rooms)),
+    colors: JSON.parse(JSON.stringify(state.colors)),
+    materials: JSON.parse(JSON.stringify(state.materials)),
+    signature: JSON.parse(JSON.stringify(state.signature))
+  };
+  if (state.project.name && state.project.name !== project.name) {
+    project.name = state.project.name;
+  }
+  saveProjectsList();
+}
+
+function createNewProject(projectName) {
+  if (!projectName || !projectName.trim()) {
+    showToast('يرجى كتابة اسم للمشروع', 'error');
+    return false;
+  }
+  saveCurrentProject();
+  const newState = {
+    project: {
+      name: projectName.trim(),
+      client: '',
+      engineer: '',
+      date: new Date().toISOString().slice(0, 10)
+    },
+    rooms: [
+      mkRoom('غرفة النوم'),
+      mkRoom('الحمام'),
+      mkRoom('المطبخ'),
+      mkRoom('الصالة')
+    ],
+    colors: [],
+    materials: [],
+    signature: {
+      dataUrl: '',
+      name: '',
+      date: new Date().toISOString().slice(0, 10),
+      approved: false,
+      approvedAt: ''
+    }
+  };
+  const newProject = {
+    id: 'proj_' + Date.now(),
+    name: projectName.trim(),
+    data: newState
+  };
+  projects.push(newProject);
+  saveProjectsList();
+  loadProject(newProject.id);
+  showToast('تم إنشاء مشروع "' + newProject.name + '"', 'success');
+  return true;
+}
+
+function deleteProject(projectId) {
+  if (projects.length <= 1) {
+    showToast('لا يمكن حذف المشروع الوحيد المتبقي', 'error');
+    return;
+  }
+  const project = projects.find(p => p.id === projectId);
+  if (!project) return;
+  let nextId = null;
+  if (projectId === currentProjectId) {
+    const others = projects.filter(p => p.id !== projectId);
+    nextId = others[0].id;
+  }
+  projects = projects.filter(p => p.id !== projectId);
+  saveProjectsList();
+  if (nextId) {
+    loadProject(nextId);
+  } else {
+    renderAll();
+  }
+  showToast('تم حذف المشروع "' + project.name + '"', 'info');
 }
 
 /* --------------------------------------------------------------------------
@@ -1192,6 +1339,11 @@ function showAddRoomModal() {
     const ok = document.getElementById('addRoomOkBtn');
     const cancel = document.getElementById('addRoomCancelBtn');
 
+    // نضمن أن النصوص أصلية (لأنه قد تم تغييرها سابقاً بواسطة showPromptModal)
+    ov.querySelector('.confirm-icon').textContent = '🏠';
+    ov.querySelector('.confirm-title').textContent = 'إضافة غرفة جديدة';
+    ov.querySelector('.confirm-msg').textContent = 'اكتب اسم الغرفة التي تريد إضافتها إلى المشروع.';
+    input.placeholder = 'مثال: غرفة الضيوف';
     input.value = '';
     ov.classList.add('show');
 
@@ -2323,6 +2475,131 @@ document.addEventListener('keydown', e => {
 });
 
 /* --------------------------------------------------------------------------
-28. بدء التطبيق
+28. إدارة المشاريع (نافذة القائمة)
+-------------------------------------------------------------------------- */
+function renderProjectManager() {
+  const overlay = document.getElementById('projectManagerOverlay');
+  const list = document.getElementById('projectList');
+  list.innerHTML = '';
+  if (projects.length === 0) {
+    list.innerHTML = '<div class="no-projects-msg">لا توجد مشاريع محفوظة</div>';
+  } else {
+    projects.forEach(p => {
+      const item = document.createElement('div');
+      item.className = 'project-item' + (p.id === currentProjectId ? ' active' : '');
+      const nameSpan = document.createElement('span');
+      nameSpan.className = 'name';
+      nameSpan.textContent = p.name;
+      const actions = document.createElement('div');
+      actions.className = 'actions';
+      if (p.id !== currentProjectId) {
+        const switchBtn = document.createElement('button');
+        switchBtn.className = 'switch-btn';
+        switchBtn.textContent = 'تبديل';
+        switchBtn.onclick = () => {
+          loadProject(p.id);
+          renderProjectManager();
+        };
+        actions.appendChild(switchBtn);
+      }
+      const deleteBtn = document.createElement('button');
+      deleteBtn.className = 'delete-btn';
+      deleteBtn.textContent = 'حذف';
+      deleteBtn.onclick = async () => {
+        const ok = await showConfirm({
+          title: 'حذف المشروع؟',
+          message: 'هل أنت متأكد من حذف مشروع "' + p.name + '"؟',
+          confirmLabel: 'حذف',
+          icon: '🗑️'
+        });
+        if (ok) {
+          deleteProject(p.id);
+          renderProjectManager();
+        }
+      };
+      actions.appendChild(deleteBtn);
+      item.appendChild(nameSpan);
+      item.appendChild(actions);
+      list.appendChild(item);
+    });
+  }
+  overlay.classList.add('show');
+}
+
+function closeProjectManager() {
+  document.getElementById('projectManagerOverlay').classList.remove('show');
+}
+
+// دالة مساعدة لعرض نافذة طلب اسم المشروع الجديد (تعدل نافذة إضافة الغرفة مؤقتاً)
+function showPromptModal(title, placeholder) {
+  return new Promise(resolve => {
+    const ov = document.getElementById('addRoomOverlay');
+    const input = document.getElementById('addRoomInput');
+    const ok = document.getElementById('addRoomOkBtn');
+    const cancel = document.getElementById('addRoomCancelBtn');
+    const icon = ov.querySelector('.confirm-icon');
+    const titleEl = ov.querySelector('.confirm-title');
+    const msg = ov.querySelector('.confirm-msg');
+
+    // حفظ النصوص الأصلية
+    const origIcon = icon.textContent;
+    const origTitle = titleEl.textContent;
+    const origMsg = msg.textContent;
+    const origPlaceholder = input.placeholder;
+
+    // تعديل النصوص للطلب
+    icon.textContent = '📁';
+    titleEl.textContent = title || 'اسم المشروع الجديد';
+    msg.textContent = placeholder || 'أدخل اسم المشروع';
+    input.placeholder = placeholder || 'اسم المشروع';
+    input.value = '';
+    ov.classList.add('show');
+
+    function cleanup(r) {
+      ov.classList.remove('show');
+      // استعادة النصوص الأصلية
+      icon.textContent = origIcon;
+      titleEl.textContent = origTitle;
+      msg.textContent = origMsg;
+      input.placeholder = origPlaceholder;
+      ok.onclick = null;
+      cancel.onclick = null;
+      ov.onclick = null;
+      input.onkeydown = null;
+      document.removeEventListener('keydown', esc);
+      resolve(r);
+    }
+    function esc(e) { if (e.key === 'Escape') cleanup(null); }
+
+    ok.onclick = () => cleanup(input.value);
+    cancel.onclick = () => cleanup(null);
+    ov.onclick = e => { if (e.target === ov) cleanup(null); };
+    input.onkeydown = e => { if (e.key === 'Enter') cleanup(input.value); };
+    document.addEventListener('keydown', esc);
+    setTimeout(() => input.focus(), 50);
+  });
+}
+
+// ربط أزرار إدارة المشاريع
+document.getElementById('manageProjectsBtn').onclick = () => {
+  renderProjectManager();
+};
+
+document.getElementById('closeProjectManagerBtn').onclick = closeProjectManager;
+document.getElementById('projectManagerOverlay').addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) closeProjectManager();
+});
+
+document.getElementById('newProjectBtn').onclick = async () => {
+  // إغلاق نافذة إدارة المشاريع أولاً
+  closeProjectManager();
+  const name = await showPromptModal('اسم المشروع الجديد', 'أدخل اسم المشروع');
+  if (name && name.trim()) {
+    createNewProject(name.trim());
+  }
+};
+
+/* --------------------------------------------------------------------------
+29. بدء التطبيق
 -------------------------------------------------------------------------- */
 renderAll();

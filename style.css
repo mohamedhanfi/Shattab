@@ -1677,7 +1677,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
   inset: 0;
   background: rgba(15,26,46,.65);
   backdrop-filter: blur(6px);
-  z-index: 9600;
+  z-index: 9900; /* تم رفعه ليظهر فوق نافذة إدارة المشاريع */
   align-items: center;
   justify-content: center;
   padding: var(--space-lg);
@@ -2326,4 +2326,135 @@ body.focus-mode .focus-exit-btn {
 @keyframes sheetFadeIn {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+/* ==========================================================================
+   نافذة إدارة المشاريع - إضافة جديدة
+   ========================================================================== */
+.project-manager-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(15,26,46,.7);
+  backdrop-filter: blur(8px);
+  z-index: 9800;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-lg);
+}
+
+.project-manager-overlay.show {
+  display: flex;
+  animation: fadeIn .25s ease;
+}
+
+.project-manager-box {
+  background: var(--sheet);
+  border-radius: var(--radius-xl);
+  max-width: 500px;
+  width: 100%;
+  padding: var(--space-xl) var(--space-lg) var(--space-lg);
+  box-shadow: var(--shadow-xl);
+  border: 1px solid var(--paper-line);
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.project-manager-box h2 {
+  font-family: 'Tajawal', sans-serif;
+  font-size: var(--font-xl);
+  font-weight: 800;
+  color: var(--navy);
+  margin: 0 0 var(--space-md);
+  text-align: center;
+}
+
+.project-list {
+  flex: 1;
+  overflow-y: auto;
+  margin: var(--space-md) 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.project-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: var(--empty-bg);
+  border-radius: var(--radius);
+  border: 1.5px solid var(--paper-line);
+  transition: all var(--transition-fast);
+}
+
+.project-item:hover {
+  border-color: var(--brass);
+}
+
+.project-item .name {
+  font-weight: 600;
+  font-size: var(--font-base);
+  color: var(--ink);
+}
+
+.project-item .actions {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.project-item .actions button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: var(--font-sm);
+  padding: 4px 8px;
+  border-radius: var(--radius);
+  transition: all var(--transition-fast);
+  font-weight: 600;
+}
+
+.project-item .actions .switch-btn {
+  color: var(--brass-dark);
+}
+
+.project-item .actions .switch-btn:hover {
+  background: rgba(196,154,108,.15);
+}
+
+.project-item .actions .delete-btn {
+  color: var(--danger);
+}
+
+.project-item .actions .delete-btn:hover {
+  background: rgba(192,57,43,.1);
+}
+
+.project-item.active {
+  border-color: var(--brass);
+  background: rgba(196,154,108,.08);
+}
+
+.project-item.active .name {
+  color: var(--brass-dark);
+}
+
+.project-manager-actions {
+  display: flex;
+  gap: var(--space-md);
+  margin-top: var(--space-md);
+  flex-wrap: wrap;
+}
+
+.project-manager-actions .btn {
+  flex: 1;
+}
+
+.no-projects-msg {
+  color: var(--ink-soft);
+  text-align: center;
+  padding: var(--space-md);
+  font-style: italic;
 }

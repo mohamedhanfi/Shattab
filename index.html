@@ -63,7 +63,7 @@
       <div class="sidebar-footer no-print">
         <button class="ghost-btn" id="saveProjectBtn">⭳ حفظ نسخة للتعديل (JSON)</button>
         <button class="ghost-btn" id="loadProjectBtn">فتح نسخة محفوظة</button>
-    
+        <button class="ghost-btn" id="manageProjectsBtn">📁 إدارة المشاريع</button>
         <input type="file" id="loadInput" accept=".json,application/json">
       </div>
     </aside>
@@ -126,6 +126,18 @@
   <div class="lib-status" id="libStatus">
     <span class="status-icon"></span>
     <span class="status-text"></span>
+  </div>
+
+  <!-- نافذة إدارة المشاريع (جديدة) -->
+  <div class="project-manager-overlay no-print" id="projectManagerOverlay">
+    <div class="project-manager-box">
+      <h2>📁 إدارة المشاريع</h2>
+      <div class="project-list" id="projectList"></div>
+      <div class="project-manager-actions">
+        <button class="btn btn-brass" id="newProjectBtn">+ مشروع جديد</button>
+        <button class="btn btn-outline" id="closeProjectManagerBtn">إغلاق</button>
+      </div>
+    </div>
   </div>
 
   <script src="script.js"></script>
