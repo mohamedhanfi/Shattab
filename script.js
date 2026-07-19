@@ -501,7 +501,7 @@ function renderBreadcrumb() {
 }
 
 /* --------------------------------------------------------------------------
-9. عرض كل شيء
+9. عرض كل شيء - مع تحسين انتقال الصفحات (Page Transitions)
 -------------------------------------------------------------------------- */
 /* --------------------------------------------------------------------------
 9ب. أيقونة متغيرة (Favicon) حسب حالة اعتماد المشروع
@@ -519,16 +519,46 @@ function updateFavicon() {
   link.href = 'data:image/svg+xml,' + encodeURIComponent(svg);
 }
 
+// متغير للتحكم بحالة الانتقال
+let isTransitioning = false;
+
 function renderAll() {
+  // منع التكرار أثناء الانتقال
+  if (isTransitioning) return;
+  
+  const main = document.getElementById('mainContent');
+  const currentContent = main.innerHTML;
+  
+  // إذا كان المحتوى فارغاً (أول تحميل) نعرض مباشرة
+  if (!currentContent.trim()) {
+    performRender();
+    return;
+  }
+  
+  // تطبيق تأثير الخروج
+  isTransitioning = true;
+  main.classList.add('fade-out');
+  
+  // بعد انتهاء تأثير الخروج، نعرض المحتوى الجديد بتأثير الدخول
+  setTimeout(() => {
+    performRender();
+    main.classList.remove('fade-out');
+    main.classList.add('fade-in');
+    
+    // إزالة تأثير الدخول بعد انتهائه
+    setTimeout(() => {
+      main.classList.remove('fade-in');
+      isTransitioning = false;
+    }, 400);
+  }, 300);
+}
+
+function performRender() {
   renderSidebar();
   renderBreadcrumb();
   updateFavicon();
   const main = document.getElementById('mainContent');
   main.innerHTML = '';
-  
-  // إضافة أنيميشن دخول ناعم
-  main.style.opacity = '0';
-  main.style.transform = 'translateY(10px)';
   
   if (currentTab === 'project') main.appendChild(renderProjectSheet());
   else if (currentTab === 'signature') main.appendChild(renderSignatureSheet());
@@ -536,13 +566,6 @@ function renderAll() {
     const room = state.rooms.find(r => r.id === currentTab);
     if (room) main.appendChild(renderRoomSheet(room));
   }
-  
-  // تفعيل الأنيميشن
-  requestAnimationFrame(() => {
-    main.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
-    main.style.opacity = '1';
-    main.style.transform = 'translateY(0)';
-  });
   
   closeDrawer();
   applyTranslations();
@@ -2639,7 +2662,7 @@ function renderProjectManager() {
         actions.appendChild(switchBtn);
       }
       
-      // زر نسخ المشروع (جديد)
+      // زر نسخ المشروع
       const duplicateBtn = document.createElement('button');
       duplicateBtn.className = 'duplicate-btn';
       duplicateBtn.textContent = '📋';
@@ -3163,13 +3186,9 @@ function closeAllOverlays() {
 }
 
 /* --------------------------------------------------------------------------
-32. بدء التطبيق (تم تعديله لاستدعاء setLanguage)
+32. بدء التطبيق
 -------------------------------------------------------------------------- */
 // renderAll() يتم استدعاؤها من loadFromLocalStorage أو من بداية التحميل
-// لكننا نضيف استدعاء setLanguage في load event
-window.addEventListener('load', () => {
-  // تم نقله إلى الأعلى
-});
 
 // نضيف استدعاء إضافي لضمان الترجمة بعد التحميل الكامل
 document.addEventListener('DOMContentLoaded', () => {

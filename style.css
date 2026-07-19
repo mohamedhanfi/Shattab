@@ -80,6 +80,221 @@
   --transition-spring: 0.4s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+/* ==========================================================================
+   تحسينات جديدة: تأثيرات البطاقات والانتقال بين الصفحات
+   ========================================================================== */
+
+/* ---- تأثيرات انتقال الصفحات (Page Transitions) ---- */
+.page-transition-enter {
+  opacity: 0;
+  transform: translateY(24px) scale(0.96);
+}
+.page-transition-enter-active {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  transition: opacity 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+              transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.page-transition-exit {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+.page-transition-exit-active {
+  opacity: 0;
+  transform: translateY(-16px) scale(0.96);
+  transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* تطبيق الانتقال على المحتوى الرئيسي */
+#mainContent {
+  transition: opacity 0.35s ease, transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+#mainContent.fade-out {
+  opacity: 0;
+  transform: translateY(12px) scale(0.98);
+}
+#mainContent.fade-in {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+/* ---- تأثيرات البطاقات المحسّنة (Card Hover Effects) ---- */
+
+/* بطاقات الصور */
+.img-card {
+  transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+              box-shadow 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+              border-color 0.3s ease;
+  will-change: transform;
+}
+.img-card:hover {
+  transform: translateY(-8px) scale(1.02);
+  box-shadow: 0 16px 48px rgba(26,26,46,.18), 0 4px 12px rgba(26,26,46,.06);
+  border-color: var(--brass);
+}
+.img-card .thumb-wrap {
+  overflow: hidden;
+}
+.img-card .thumb-wrap img {
+  transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.img-card:hover .thumb-wrap img {
+  transform: scale(1.08);
+}
+.img-card .img-overlay {
+  transition: background 0.4s ease;
+}
+.img-card:hover .img-overlay {
+  background: rgba(0,0,0,0.25) !important;
+}
+.img-card:hover .img-overlay span {
+  opacity: 1 !important;
+}
+
+/* بطاقات الألوان */
+.color-card {
+  transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+              box-shadow 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+              border-color 0.3s ease;
+  will-change: transform;
+}
+.color-card:hover {
+  transform: translateY(-6px) scale(1.01);
+  box-shadow: 0 16px 48px rgba(26,26,46,.15), 0 4px 12px rgba(26,26,46,.05);
+  border-color: var(--brass);
+}
+.color-swatch-large {
+  transition: filter 0.4s ease;
+}
+.color-card:hover .color-swatch-large {
+  filter: brightness(1.05) saturate(1.1);
+}
+.color-swatch-large::after {
+  transition: opacity 0.3s ease;
+}
+
+/* بطاقات المواد */
+.material-card {
+  transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+              box-shadow 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+              border-color 0.3s ease;
+  will-change: transform;
+}
+.material-card:hover {
+  transform: translateY(-6px) scale(1.01);
+  box-shadow: 0 16px 48px rgba(26,26,46,.15), 0 4px 12px rgba(26,26,46,.05);
+  border-color: var(--brass);
+}
+.material-card img {
+  transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.material-card:hover img {
+  transform: scale(1.06);
+}
+.material-card .mat-image-preview div {
+  transition: background 0.4s ease;
+}
+.material-card:hover .mat-image-preview div {
+  background: rgba(0,0,0,0.25) !important;
+}
+.material-card:hover .mat-image-preview span {
+  opacity: 1 !important;
+}
+
+/* بطاقات الغرف في الصفحة الرئيسية */
+.room-overview-card {
+  transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+              box-shadow 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+              border-color 0.3s ease;
+  will-change: transform;
+}
+.room-overview-card:hover {
+  transform: translateY(-6px) scale(1.01);
+  box-shadow: 0 12px 40px rgba(26,26,46,.12), 0 4px 12px rgba(26,26,46,.04);
+  border-color: var(--brass);
+}
+.room-overview-thumb img {
+  transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.room-overview-card:hover .room-overview-thumb img {
+  transform: scale(1.06);
+}
+
+/* بطاقات الملخص */
+.summary-card {
+  transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1),
+              box-shadow 0.4s cubic-bezier(0.22, 1, 0.36, 1),
+              border-color 0.3s ease;
+  will-change: transform;
+}
+.summary-card:hover {
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 10px 32px rgba(26,26,46,.10);
+  border-color: var(--brass-light);
+}
+
+/* بطاقات المشاريع */
+.project-item {
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1),
+              border-color 0.3s ease,
+              background 0.3s ease;
+}
+.project-item:hover {
+  transform: translateX(-4px);
+}
+
+/* العناصر القابلة للنقر بشكل عام */
+.nav-item {
+  transition: all 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.nav-item:hover {
+  transform: translateX(-4px);
+}
+.nav-item .icon {
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.nav-item:hover .icon {
+  transform: scale(1.15) rotate(-4deg);
+}
+.nav-item.active .icon {
+  transform: scale(1.1);
+}
+
+/* الأزرار */
+.btn, .ghost-btn, .btn-icon {
+  transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.btn:hover, .ghost-btn:hover {
+  transform: translateY(-2px);
+}
+.btn:active, .ghost-btn:active {
+  transform: translateY(0) scale(0.97);
+}
+.btn-icon:hover {
+  transform: scale(1.1) rotate(2deg);
+}
+.btn-icon:active {
+  transform: scale(0.92);
+}
+
+/* الأكورديون */
+.accordion-section {
+  transition: box-shadow 0.4s ease, border-color 0.3s ease;
+}
+.accordion-section:hover {
+  box-shadow: 0 4px 16px rgba(26,26,46,.06);
+  border-color: var(--brass-light);
+}
+.accordion-header {
+  transition: background 0.3s ease;
+}
+.accordion-arrow {
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* باقي الأنماط (لم تتغير) */
+
 /* --------------------------------------------------------------------------
    الوضع الليلي - ألوان متناسقة ومحسّنة (تغطي جميع العناصر)
    -------------------------------------------------------------------------- */
@@ -383,6 +598,10 @@ body.dark-mode .breadcrumb .crumb-current {
 body.dark-mode {
   background: linear-gradient(145deg, #151522 0%, #0f0f1a 100%);
 }
+
+/* ==========================================================================
+   باقي الأنماط الأساسية (لم تتغير)
+   ========================================================================== */
 
 /* --------------------------------------------------------------------------
    الإعدادات الأساسية (Base)
