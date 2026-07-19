@@ -302,6 +302,22 @@ function deleteProject(projectId) {
   showToast('تم حذف المشروع "' + project.name + '"', 'info');
 }
 
+function duplicateProject(projectId, newName) {
+  const source = projects.find(p => p.id === projectId);
+  if (!source) return false;
+  const newProject = {
+    id: 'proj_' + Date.now(),
+    name: newName || (source.name + ' (نسخة)'),
+    data: JSON.parse(JSON.stringify(source.data)),
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+  projects.push(newProject);
+  saveProjectsList();
+  showToast('تم نسخ المشروع بنجاح', 'success');
+  return true;
+}
+
 /* --------------------------------------------------------------------------
 5. شريط التقدم
 -------------------------------------------------------------------------- */
@@ -328,12 +344,14 @@ function renderSidebar() {
   navRooms.innerHTML = '';
   state.rooms.forEach((room, i) => {
     const item = navItem('room', room.name, room.id, currentTab === room.id, room.images.length);
+    // إضافة أحداث السحب والإفلات بين المشاريع
     item.draggable = true;
     item.dataset.roomId = room.id;
-    item.addEventListener('dragstart', handleDragStart);
-    item.addEventListener('dragover', handleDragOver);
-    item.addEventListener('drop', handleDrop);
-    item.addEventListener('dragend', handleDragEnd);
+    item.addEventListener('dragstart', handleRoomDragStart);
+    item.addEventListener('dragend', handleRoomDragEnd);
+    item.addEventListener('dragover', handleRoomDragOver);
+    item.addEventListener('dragleave', handleRoomDragLeave);
+    item.addEventListener('drop', handleRoomDrop);
     navRooms.appendChild(item);
   });
 
@@ -345,7 +363,7 @@ function renderSidebar() {
 }
 
 /* --------------------------------------------------------------------------
-7. Drag & Drop للغرف
+7. Drag & Drop للغرف (داخل نفس المشروع)
 -------------------------------------------------------------------------- */
 let draggedRoomId = null;
 
@@ -384,6 +402,52 @@ function handleDragEnd(e) {
 }
 
 /* --------------------------------------------------------------------------
+7ب. سحب وإفلات الغرف بين المشاريع (جديد)
+-------------------------------------------------------------------------- */
+let draggedRoomIdCross = null;
+
+function handleRoomDragStart(e) {
+  draggedRoomIdCross = this.dataset.roomId;
+  this.style.opacity = '0.4';
+  e.dataTransfer.setData('text/plain', this.dataset.roomId);
+  e.dataTransfer.effectAllowed = 'move';
+}
+
+function handleRoomDragEnd(e) {
+  this.style.opacity = '1';
+  document.querySelectorAll('.nav-item').forEach(i => i.style.borderTop = '');
+  // لا نعيد تعيين draggedRoomIdCross فوراً لأنه قد يستخدم في الإفلات
+}
+
+function handleRoomDragOver(e) {
+  e.preventDefault();
+  // نسمح بالإفلات على أي عنصر nav-item من نوع room
+  if (this.dataset.roomId && this.dataset.roomId !== draggedRoomIdCross) {
+    this.style.borderTop = '2px solid var(--brass)';
+  }
+  e.dataTransfer.dropEffect = 'move';
+}
+
+function handleRoomDragLeave(e) {
+  this.style.borderTop = '';
+}
+
+function handleRoomDrop(e) {
+  e.preventDefault();
+  this.style.borderTop = '';
+  const draggedId = e.dataTransfer.getData('text/plain');
+  const targetId = this.dataset.roomId;
+  if (!draggedId || !targetId || draggedId === targetId) return;
+  
+  // التحقق من أن العنصر المسحوب هو غرفة وليس عنصر آخر
+  const room = state.rooms.find(r => r.id === draggedId);
+  if (!room) return;
+  
+  // فتح نافذة اختيار المشروع الهدف
+  showMoveRoomDialog(draggedId);
+}
+
+/* --------------------------------------------------------------------------
 8. عناصر التنقل والأيقونات
 -------------------------------------------------------------------------- */
 const NAV_ICONS = {
@@ -405,6 +469,18 @@ function navItem(iconKey, label, tabKey, active, count) {
     (count !== undefined ? `<span class="count">${count}</span>` : '');
   btn.onclick = () => { currentTab = tabKey; renderAll(); };
   btn.title = t('switch-project') || 'تبديل';
+  
+  // إضافة أحداث drag للغرف فقط (للسحب بين المشاريع)
+  if (iconKey === 'room') {
+    btn.draggable = true;
+    btn.dataset.roomId = tabKey;
+    btn.addEventListener('dragstart', handleRoomDragStart);
+    btn.addEventListener('dragend', handleRoomDragEnd);
+    btn.addEventListener('dragover', handleRoomDragOver);
+    btn.addEventListener('dragleave', handleRoomDragLeave);
+    btn.addEventListener('drop', handleRoomDrop);
+  }
+  
   return btn;
 }
 
@@ -486,7 +562,7 @@ function sheetShell(tag, title, desc, bodyEl) {
 function renderProjectSheet() {
   const body = document.createElement('div');
   body.innerHTML = `
-    <div class="top-hint">${t('project-hint')}</div>
+    <div class="top-hint">${t('project-intro')}</div>
     <h3 class="section-label">${t('project-info')}</h3>
     <div class="field-row">
       <div class="field"><label class="field-label">${t('project-name')}</label><input type="text" id="pName" placeholder="${t('project-name-placeholder')}"></div>
@@ -832,7 +908,7 @@ function imageCard(room, img, i) {
     saveToLocalStorage();
   };
 
-  // إضافة أحداث السحب والإفلات
+  // إضافة أحداث السحب والإفلات داخل الغرفة
   card.addEventListener('dragstart', (e) => {
     e.dataTransfer.setData('text/plain', i);
     card.style.opacity = '0.5';
@@ -2542,11 +2618,15 @@ function renderProjectManager() {
     projects.forEach(p => {
       const item = document.createElement('div');
       item.className = 'project-item' + (p.id === currentProjectId ? ' active' : '');
+      
       const nameSpan = document.createElement('span');
       nameSpan.className = 'name';
       nameSpan.textContent = p.name;
+      
       const actions = document.createElement('div');
       actions.className = 'actions';
+      
+      // زر التبديل (للمشاريع الأخرى)
       if (p.id !== currentProjectId) {
         const switchBtn = document.createElement('button');
         switchBtn.className = 'switch-btn';
@@ -2558,6 +2638,25 @@ function renderProjectManager() {
         };
         actions.appendChild(switchBtn);
       }
+      
+      // زر نسخ المشروع (جديد)
+      const duplicateBtn = document.createElement('button');
+      duplicateBtn.className = 'duplicate-btn';
+      duplicateBtn.textContent = '📋';
+      duplicateBtn.title = t('duplicate-project') || 'نسخ المشروع';
+      duplicateBtn.onclick = async () => {
+        const newName = await showPromptModal(
+          t('duplicate-project-title') || 'نسخ المشروع',
+          t('duplicate-project-msg') || 'أدخل اسم المشروع الجديد'
+        );
+        if (newName && newName.trim()) {
+          duplicateProject(p.id, newName.trim());
+          renderProjectManager();
+        }
+      };
+      actions.appendChild(duplicateBtn);
+      
+      // زر الحذف
       const deleteBtn = document.createElement('button');
       deleteBtn.className = 'delete-btn';
       deleteBtn.textContent = t('delete');
@@ -2589,6 +2688,12 @@ function renderProjectManager() {
       list.appendChild(item);
     });
   }
+  
+  // إعادة تعيين الأزرار في النافذة (إزالة زر الإضافة)
+  const actionsContainer = document.querySelector('.project-manager-actions');
+  actionsContainer.innerHTML = `<button class="btn btn-outline" id="closeProjectManagerBtn" data-i18n="close">${t('close')}</button>`;
+  document.getElementById('closeProjectManagerBtn').onclick = closeProjectManager;
+  
   overlay.classList.add('show');
 }
 
@@ -2651,19 +2756,91 @@ document.getElementById('manageProjectsBtn').onclick = () => {
   renderProjectManager();
 };
 
-document.getElementById('closeProjectManagerBtn').onclick = closeProjectManager;
 document.getElementById('projectManagerOverlay').addEventListener('click', (e) => {
   if (e.target === e.currentTarget) closeProjectManager();
 });
 
-document.getElementById('newProjectBtn').onclick = async () => {
-  // إغلاق نافذة إدارة المشاريع أولاً
-  closeProjectManager();
-  const name = await showPromptModal(t('new-project-title'), t('new-project-msg'));
-  if (name && name.trim()) {
-    createNewProject(name.trim());
+/* --------------------------------------------------------------------------
+28ب. نافذة نقل الغرفة بين المشاريع (جديدة)
+-------------------------------------------------------------------------- */
+let moveRoomId = null;
+
+function showMoveRoomDialog(roomId) {
+  moveRoomId = roomId;
+  const overlay = document.getElementById('moveRoomOverlay');
+  const list = document.getElementById('moveProjectList');
+  list.innerHTML = '';
+  document.getElementById('moveRoomTitle').textContent = t('move-room-title') || 'نقل الغرفة إلى مشروع آخر';
+  document.getElementById('moveRoomMsg').textContent = t('move-room-msg') || 'اختر المشروع الذي تريد نقل الغرفة إليه:';
+  
+  const currentProject = projects.find(p => p.id === currentProjectId);
+  const room = state.rooms.find(r => r.id === roomId);
+  if (!room) {
+    showToast('الغرفة غير موجودة', 'error');
+    return;
   }
-};
+  
+  let hasOtherProjects = false;
+  projects.forEach(p => {
+    if (p.id === currentProjectId) return; // لا نعرض المشروع الحالي
+    hasOtherProjects = true;
+    const item = document.createElement('div');
+    item.className = 'project-select-item';
+    item.textContent = p.name + ' (' + p.data.rooms.length + ' ' + t('rooms-count') + ')';
+    item.onclick = () => {
+      moveRoomToProject(roomId, p.id);
+      closeMoveRoomDialog();
+    };
+    list.appendChild(item);
+  });
+  
+  if (!hasOtherProjects) {
+    const empty = document.createElement('div');
+    empty.className = 'no-projects-msg';
+    empty.textContent = t('no-other-projects') || 'لا توجد مشاريع أخرى لنقل الغرفة إليها.';
+    list.appendChild(empty);
+  }
+  
+  overlay.classList.add('show');
+}
+
+function closeMoveRoomDialog() {
+  document.getElementById('moveRoomOverlay').classList.remove('show');
+  moveRoomId = null;
+}
+
+function moveRoomToProject(roomId, targetProjectId) {
+  const sourceProject = projects.find(p => p.id === currentProjectId);
+  const targetProject = projects.find(p => p.id === targetProjectId);
+  if (!sourceProject || !targetProject) {
+    showToast('حدث خطأ أثناء النقل', 'error');
+    return;
+  }
+  
+  const roomIndex = sourceProject.data.rooms.findIndex(r => r.id === roomId);
+  if (roomIndex === -1) {
+    showToast('الغرفة غير موجودة', 'error');
+    return;
+  }
+  
+  const [room] = sourceProject.data.rooms.splice(roomIndex, 1);
+  targetProject.data.rooms.push(room);
+  
+  // تحديث التواريخ
+  sourceProject.updatedAt = new Date().toISOString();
+  targetProject.updatedAt = new Date().toISOString();
+  
+  saveProjectsList();
+  // إعادة تحميل المشروع الحالي
+  loadProject(currentProjectId);
+  showToast('تم نقل الغرفة "' + room.name + '" بنجاح', 'success');
+}
+
+// ربط أزرار نافذة نقل الغرفة
+document.getElementById('moveRoomCancelBtn').onclick = closeMoveRoomDialog;
+document.getElementById('moveRoomOverlay').addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) closeMoveRoomDialog();
+});
 
 /* --------------------------------------------------------------------------
 29. نظام الترجمة (إضافة جديدة)
@@ -2686,6 +2863,7 @@ const translations = {
     'manage-projects': '📁 إدارة المشاريع',
     'manage-projects-title': '📁 إدارة المشاريع',
     'new-project': '+ مشروع جديد',
+    'new-project-sidebar': '+ مشروع جديد',
     'close': 'إغلاق',
     'cancel': 'إلغاء',
     'confirm': 'تأكيد',
@@ -2695,6 +2873,7 @@ const translations = {
     'add-room-btn': '+ إضافة الغرفة',
     'lightbox-hint': 'اسحب للتكبير أو استخدم الأسهم للتنقل — Esc للإغلاق',
     'loading': 'جاري إنشاء ملف PDF...',
+    'project-intro': 'هذا الملف بمثابة دفتر مرجعي يوثّق اختيارات العميل قبل التنفيذ.',
     'project-info': 'بيانات المشروع',
     'project-sheet-desc': 'صفحة الغلاف',
     'room-ref': 'مرجع الصور والخامات والألوان',
@@ -2747,6 +2926,12 @@ const translations = {
     'delete-project-msg': 'هل أنت متأكد من حذف مشروع "{name}"؟',
     'switch-project': 'تبديل',
     'delete': 'حذف',
+    'duplicate-project': 'نسخ المشروع',
+    'duplicate-project-title': 'نسخ المشروع',
+    'duplicate-project-msg': 'أدخل اسم المشروع الجديد',
+    'move-room-title': 'نقل الغرفة إلى مشروع آخر',
+    'move-room-msg': 'اختر المشروع الذي تريد نقل الغرفة إليه:',
+    'no-other-projects': 'لا توجد مشاريع أخرى لنقل الغرفة إليها.',
     'project-name': 'اسم المشروع',
     'client-name-label': 'اسم العميل',
     'engineer-name': 'اسم المهندس / المصمم',
@@ -2766,8 +2951,6 @@ const translations = {
     'default-room-2': 'الحمام',
     'default-room-3': 'المطبخ',
     'default-room-4': 'الصالة',
-    'project-hint': 'هذا الملف بمثابة دفتر مرجعي يوثّق اختيارات العميل قبل التنفيذ.',
-
   },
   en: {
     'app-title': 'Shateb — Design Reference Book',
@@ -2786,6 +2969,7 @@ const translations = {
     'manage-projects': '📁 Manage Projects',
     'manage-projects-title': '📁 Manage Projects',
     'new-project': '+ New Project',
+    'new-project-sidebar': '+ New Project',
     'close': 'Close',
     'cancel': 'Cancel',
     'confirm': 'Confirm',
@@ -2795,6 +2979,7 @@ const translations = {
     'add-room-btn': '+ Add Room',
     'lightbox-hint': 'Drag to zoom or use arrows to navigate — Esc to close',
     'loading': 'Generating PDF...',
+    'project-intro': 'This document serves as a reference book documenting the client\'s choices before execution.',
     'project-info': 'Project Info',
     'project-sheet-desc': 'Cover Page',
     'room-ref': 'Images, Materials & Colors Reference',
@@ -2847,6 +3032,12 @@ const translations = {
     'delete-project-msg': 'Are you sure you want to delete project "{name}"?',
     'switch-project': 'Switch',
     'delete': 'Delete',
+    'duplicate-project': 'Duplicate Project',
+    'duplicate-project-title': 'Duplicate Project',
+    'duplicate-project-msg': 'Enter the name of the new project',
+    'move-room-title': 'Move Room to Another Project',
+    'move-room-msg': 'Select the project to move the room to:',
+    'no-other-projects': 'No other projects available to move the room to.',
     'project-name': 'Project Name',
     'client-name-label': 'Client Name',
     'engineer-name': 'Engineer / Designer',
@@ -2866,7 +3057,6 @@ const translations = {
     'default-room-2': 'Bathroom',
     'default-room-3': 'Kitchen',
     'default-room-4': 'Living Room',
-    'project-hint': 'This file serves as a reference book documenting the client\'s choices before execution.',
   }
 };
 
@@ -2934,7 +3124,46 @@ document.getElementById('langToggle').addEventListener('click', () => {
 });
 
 /* --------------------------------------------------------------------------
-30. بدء التطبيق (تم تعديله لاستدعاء setLanguage)
+30. زر مشروع جديد في الشريط الجانبي (جديد)
+-------------------------------------------------------------------------- */
+document.getElementById('newProjectSidebarBtn').onclick = async () => {
+  const name = await showPromptModal(t('new-project-title'), t('new-project-msg'));
+  if (name && name.trim()) {
+    createNewProject(name.trim());
+  }
+};
+
+/* --------------------------------------------------------------------------
+31. اختصارات لوحة المفاتيح (جديدة)
+-------------------------------------------------------------------------- */
+document.addEventListener('keydown', (e) => {
+  // Ctrl+N → مشروع جديد
+  if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+    e.preventDefault();
+    document.getElementById('newProjectSidebarBtn').click();
+  }
+  // Ctrl+S → حفظ
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+    e.preventDefault();
+    saveToLocalStorage();
+    showToast('تم الحفظ', 'success');
+  }
+  // Escape → إغلاق النوافذ المنبثقة
+  if (e.key === 'Escape') {
+    closeAllOverlays();
+  }
+});
+
+function closeAllOverlays() {
+  document.querySelectorAll('.confirm-overlay.show, .project-manager-overlay.show').forEach(el => {
+    el.classList.remove('show');
+  });
+  closeDrawer();
+  closeLB();
+}
+
+/* --------------------------------------------------------------------------
+32. بدء التطبيق (تم تعديله لاستدعاء setLanguage)
 -------------------------------------------------------------------------- */
 // renderAll() يتم استدعاؤها من loadFromLocalStorage أو من بداية التحميل
 // لكننا نضيف استدعاء setLanguage في load event

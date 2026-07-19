@@ -12,7 +12,6 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Tajawal:wght@400;500;700;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
   
-  <!-- إضافة أيقونة لمتصفح Safari عند التثبيت -->
   <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%231e3a5f'/%3E%3Ctext x='32' y='43' font-family='Tajawal, Arial, sans-serif' font-size='30' font-weight='900' fill='%23f5f1e8' text-anchor='middle'%3Eش%3C/text%3E%3C/svg%3E">
 
   <link rel="stylesheet" href="style.css">
@@ -32,7 +31,6 @@
     
     <aside class="sidebar" id="sidebar">
       <div class="theme-toggle-wrapper">
-        <!-- إضافة زر تبديل اللغة -->
         <button class="lang-toggle" id="langToggle" title="تبديل اللغة / Switch Language" aria-label="تبديل اللغة">🌐 ع</button>
         <span class="theme-toggle-label" data-i18n="mode">الوضع</span>
         <button class="theme-toggle" id="themeToggle" title="تبديل الوضع الليلي" aria-label="تبديل الوضع الليلي"></button>
@@ -42,6 +40,11 @@
         <h1 class="brand-logo" data-i18n="app-name">شطّب</h1>
         <span class="brand-subtitle" data-i18n="app-subtitle">دفتر مرجع التصميم</span>
         <small id="projectSubtitle">بدون اسم مشروع بعد</small>
+      </div>
+
+      <!-- زر مشروع جديد (جديد) -->
+      <div class="sidebar-actions no-print">
+        <button class="btn-new-project" id="newProjectSidebarBtn" data-i18n="new-project-sidebar">+ مشروع جديد</button>
       </div>
 
       <div class="progress-container">
@@ -106,6 +109,19 @@
     </div>
   </div>
 
+  <!-- نافذة اختيار المشروع عند سحب الغرفة (جديدة) -->
+  <div class="confirm-overlay no-print" id="moveRoomOverlay">
+    <div class="confirm-box">
+      <div class="confirm-icon">📦</div>
+      <div class="confirm-title" id="moveRoomTitle">نقل الغرفة إلى مشروع آخر</div>
+      <div class="confirm-msg" id="moveRoomMsg">اختر المشروع الذي تريد نقل الغرفة إليه:</div>
+      <div class="project-select-list" id="moveProjectList"></div>
+      <div class="confirm-actions">
+        <button class="btn btn-outline" id="moveRoomCancelBtn" data-i18n="cancel">إلغاء</button>
+      </div>
+    </div>
+  </div>
+
   <button class="focus-exit-btn no-print" id="focusExitBtn" title="الخروج من وضع التركيز" aria-label="الخروج من وضع التركيز">✕ إنهاء وضع التركيز</button>
 
   <div class="lightbox no-print" id="lightbox" role="dialog" aria-modal="true" aria-label="عارض الصور">
@@ -116,7 +132,6 @@
       <img id="lightboxImg" alt="صورة مكبرة" draggable="false">
     </div>
     <button class="lightbox-nav lightbox-next" id="lightboxNext" aria-label="الصورة التالية">›</button>
-    <!-- زر الشاشة الكاملة -->
     <button class="lightbox-fullscreen" id="lightboxFullscreen" title="شاشة كاملة" aria-label="شاشة كاملة">⛶</button>
     <div class="lightbox-hint mono" data-i18n="lightbox-hint">اسحب للتكبير أو استخدم الأسهم للتنقل — Esc للإغلاق</div>
   </div>
@@ -134,13 +149,13 @@
     <span class="status-text"></span>
   </div>
 
-  <!-- نافذة إدارة المشاريع (جديدة) -->
+  <!-- نافذة إدارة المشاريع -->
   <div class="project-manager-overlay no-print" id="projectManagerOverlay">
     <div class="project-manager-box">
       <h2 data-i18n="manage-projects-title">📁 إدارة المشاريع</h2>
       <div class="project-list" id="projectList"></div>
       <div class="project-manager-actions">
-        <button class="btn btn-brass" id="newProjectBtn" data-i18n="new-project">+ مشروع جديد</button>
+        <!-- تم إزالة زر + مشروع جديد -->
         <button class="btn btn-outline" id="closeProjectManagerBtn" data-i18n="close">إغلاق</button>
       </div>
     </div>
